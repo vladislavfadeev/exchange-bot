@@ -1,12 +1,9 @@
-from aiogram import Bot
-from aiogram.dispatcher import Dispatcher
-from aiogram.contrib.fsm_storage.memory import MemoryStorage
+from aiogram import Bot, Dispatcher
+from aiogram.types import Message
+from core.middlwares.settigns import appSettings
 import os
-import ENV
 
-
-storage = MemoryStorage()
 
 # bot = Bot(token = os.getenv('TOKEN'))
-bot = Bot(token = ENV.token)
-dp = Dispatcher(bot, storage=storage)
+bot = Bot(token = appSettings.botSetting.botToken)
+dp = Dispatcher()

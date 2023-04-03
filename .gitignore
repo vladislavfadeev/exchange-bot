@@ -1,9 +1,9 @@
 __pycache__/*
 .vscode/*
-api_actions/__pycache__/*
-CONSTANTS/__pycache__/*
-data_base/__pycache__/*
-handlers/__pycache__/*
-keyboard/__pycache__/*
-variables/__pycache__/*
-ENV.py
+core/__pycache__/*
+core/api_actions/__pycache__/*
+core/handlers/__pycache__/*
+core/keyboards/__pycache__/*
+core/middlwares/__pycache__/*
+core/utils/__pycache__/*
+.env

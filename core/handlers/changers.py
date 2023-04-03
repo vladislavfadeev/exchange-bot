@@ -5,9 +5,9 @@ from aiogram.dispatcher.filters import Text
 from create_bot import dp, bot
 import variables.service_message as sm
 import variables.msg_maker as mm
-from api_actions import user_api
+from core.api_actions import bot_api
 from keyboard import changer_kb, customer_kb
-from handlers import exchange
+from core.handlers import user
 from datetime import datetime
 
 
@@ -21,7 +21,7 @@ class FSMResponse(StatesGroup):
 async def send_user_request(request):
     message, request_id = await mm.request_msg_maker(request)
     inline_kb = await changer_kb.resp_answer_kb(request_id)
-    changers = await user_api.get_changers_list()
+    changers = await bot_api.get_changers_list()
     print(message)
     for changer in changers:
         await bot.send_message(changer['tg_id'], text = message,
@@ -64,8 +64,8 @@ async def set_bank_account(message: types.Message, callback_data: dict,
                            state: FSMContext):
     async with state.proxy() as data:
         data['changer_bank'] = callback_data.get('bank_name')
-    data_sr = await user_api.insert_response_todb(data._data)
-    await exchange.send_chngr_response(data_sr, callback_data.get('account'))
+    data_sr = await bot_api.insert_response_todb(data._data)
+    await user.send_chngr_response(data_sr, callback_data.get('account'))
     await bot.send_message(message.from_user.id, text=sm.chr_send_response)
     await state.finish()
 
@@ -101,10 +101,10 @@ async def load_proof(message: types.Message, state : FSMContext):
     async with state.proxy() as data:
         data['changer_proof'] = message.photo[0].file_id
         id = data['transaction_id']
-    data_sr = await user_api.APISimpleMethods.api_patch(f'/api/v1/transaction/{id}', data._data)
+    data_sr = await bot_api.APISimpleMethods.api_patch(f'/api/v1/transaction/{id}', data._data)
     await bot.send_message(message.from_user.id, text='Данные отправлены пользователю, спасибо!')
     await state.finish()
-    await exchange.send_changer_transaction(data_sr)
+    await user.send_changer_transaction(data_sr)
     
 
 
