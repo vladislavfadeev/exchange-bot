@@ -4,8 +4,7 @@ from aiogram.utils.keyboard import ReplyKeyboardBuilder
 
 
 def user_home_button():
-    '''
-    Build RelyKeyboardButton for "/start" function.
+    '''Build RelyKeyboardButton for "/start" function.
     '''
     builder = ReplyKeyboardBuilder()
     builder.add(KeyboardButton(text='Режим работы'))
@@ -16,12 +15,11 @@ def user_home_button():
     return builder.as_markup(
         resize_keyboard=True,
         input_field_placeholder='Выбери нужное тебе действие'
-) 
+    ) 
 
 
 def user_home_inline_button():
-    '''
-    Build InlineKeyboardButton for "/start" function.
+    '''Build InlineKeyboardButton for "/start" function.
     
     '''
     ...

@@ -1,6 +1,9 @@
 from core.middlwares.settigns import appSettings
 from core.handlers.home import register_handlers_main
-from core.handlers.user import register_handlers_user
+from core.handlers.user import (
+    register_message_handlers_user,
+    register_callback_handler_user
+)
 from create_bot import bot, dp
 import asyncio
 import logging
@@ -16,7 +19,8 @@ logging.basicConfig(
 
 async def start_bot():
     
-    await register_handlers_user()
+    await register_message_handlers_user()
+    await register_callback_handler_user()
     await register_handlers_main()
     
 

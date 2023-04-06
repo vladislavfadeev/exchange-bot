@@ -13,9 +13,16 @@ client = httpx.AsyncClient(
 
 class SimpleAPI():
 
-    async def get(path):
-        response = await client.get(path)
+    async def get(path, filter_data=None):
+
+        if filter_data:
+
+            response = await client.get(f'{path}{filter_data}')
+            return response
+        
+        response = await client.get(f'{path}')
         return response
+
 
     async def post(path, data):
         response = await client.post(

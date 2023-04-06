@@ -1,14 +1,17 @@
 from aiogram.types import KeyboardButton
-# from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
-from core.keyboards.callbackdata import CurrencyData
+from aiogram.types.inline_keyboard_markup import InlineKeyboardMarkup
+from aiogram.types.inline_keyboard_button import InlineKeyboardButton
 from core.api_actions.bot_api import SimpleAPI
 from core.middlwares.routes import r    # Dataclass whith all api routes
+from core.keyboards.callbackdata import (
+    CurrencyData,
+    OfferData,
+)
 
 
 async def set_sell_currency_button():
-    '''
-    Build InlineKeyboardButton with currensy for "start_change" handler.
+    '''Build InlineKeyboardButton with currensy for "start_change" handler.
     '''
     currency = await SimpleAPI.get(r.keysRoutes.currencyList)
     builder = InlineKeyboardBuilder()
@@ -18,7 +21,8 @@ async def set_sell_currency_button():
             text=curr["name"],
             callback_data=CurrencyData(
                 id=curr['id'],
-                name=curr['name']
+                name=curr['name'],
+                isReturned=False
             )
         )
     builder.adjust(3)
@@ -27,8 +31,7 @@ async def set_sell_currency_button():
 
 
 def user_cancel_button():
-    '''
-    Build RelyKeyboardButton for "/start" function.
+    '''Build RelyKeyboardButton for cancel all process and retun to INIT_STATE.
     '''
     builder = ReplyKeyboardBuilder()
     builder.add(KeyboardButton(text='Отменить'))
@@ -38,6 +41,21 @@ def user_cancel_button():
     ) 
 
 
+async def user_return_to_offer_choice_button(offerData):
+    '''Build InlineKeyboardButton with offer id for user choice
+    '''
+
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text=f'↩ Вернуться к выбору предложений',
+        callback_data=CurrencyData(
+            id=1,
+            name=offerData['currency'],
+            isReturned=True
+        )
+    )
+    
+    return builder.as_markup()
 
 
 

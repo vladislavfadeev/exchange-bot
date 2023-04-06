@@ -7,3 +7,4 @@ core/keyboards/__pycache__/*
 core/middlwares/__pycache__/*
 core/utils/__pycache__/*
 .env
+eee.py

@@ -1,18 +1,29 @@
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.fsm.context import FSMContext
-from aiogram.filters import Command
+from aiogram.types.callback_query import CallbackQuery
 from aiogram.types import Message
 from aiogram import F
 from create_bot import bot, dp
-from core.middlwares.routes import r
+from core.middlwares.routes import r    # Dataclass whith all api routes
+from core.utils import msg_maker, msg_var
 from core.api_actions.bot_api import SimpleAPI
 from core.utils.bot_fsm import FSMSteps
 from core.utils import msg_var as msg
 from core.keyboards import user_kb
+from core.keyboards.callbackdata import (
+    CurrencyData,
+    OfferData,
+)
+from core.middlwares.exceptions import (
+    MinAmountError,
+    MaxAmountError,
+)
+
+
 
 
 async def start_change(message: Message, state: FSMContext):
-    '''
-    Handler is start user change currency process.
+    '''Handler is start user change currency process.
     React on "Обменять валюту" in "FSMSteps.INIT_STATE"
     '''    
     await message.answer(
@@ -27,34 +38,135 @@ async def start_change(message: Message, state: FSMContext):
     await state.set_state(FSMSteps.INIT_CHANGE_STATE)
 
 
-
-
-
-
-async def register_handlers_user():
+async def show_offer(
+        call: CallbackQuery, 
+        state: FSMContext,
+        callback_data: CurrencyData
+    ):
+    '''Show all available offers for the selected currency
     '''
-    Registry handlers there.
+    if callback_data.isReturned:
+        await state.set_state(FSMSteps.INIT_CHANGE_STATE)
+
+    value = callback_data.name
+    filter_data = f'?currency={value}&isActive=True'
+    
+    offers = await SimpleAPI.get(
+        r.userRoutes.offer,
+        filter_data
+    )
+    await state.update_data(offerList = offers.json())
+    messages = await msg_maker.offer_list_msg_maker(offers.json())
+
+    for i in range(len(messages)):
+
+        value = offers.json()[i]
+        builder = InlineKeyboardBuilder()
+        builder.button(
+            text=f'🔥 Обменять {value["currency"]} тут 🔥',
+            callback_data=OfferData(
+                id=value['id']
+            )
+        )
+
+        await bot.send_message(
+            call.from_user.id,
+            text=messages[i],
+            reply_markup=builder.as_markup()
+        )
+
+
+async def set_amount(
+        call: CallbackQuery,
+        state:FSMContext,
+        callback_data: OfferData
+    ):
+    '''
+    '''
+    offerData = await state.get_data()
+
+    for i in offerData['offerList']:
+        if i['id'] == callback_data.id:
+            await state.update_data(selectedOffer = i)
+            offerData = i
+    
+    await bot.send_message(
+        call.from_user.id,
+        text= await msg_maker.set_amount_msg_maker(offerData)
+    )
+    await state.set_state(FSMSteps.SET_AMOUNT_STATE)
+    
+
+async def set_amount_check(message: Message, state: FSMContext):
+    '''
+    '''
+    data = await state.get_data()
+    offerData = data['selectedOffer']
+    
+    try:
+
+        amount = float(message.text.replace(',', '.'))
+
+        if offerData['minAmount'] != None:
+            if amount < offerData['minAmount']:
+                raise MinAmountError()
+            
+        if offerData['maxAmount'] != None:
+            if amount > offerData['maxAmount']:
+                raise MaxAmountError()
+            
+    except ValueError:
+        await message.answer(text=msg_var.type_error_msg)
+
+    except MinAmountError:
+        await message.answer(
+            text = await msg_maker.min_amount_error_msg_maker(offerData),
+            reply_markup = await user_kb.user_return_to_offer_choice_button(offerData)
+        )
+
+    except MaxAmountError:
+        await message.answer(
+            text = await msg_maker.max_amount_error_msg_maker(offerData),
+            reply_markup = await user_kb.user_return_to_offer_choice_button(offerData)
+        )
+
+    else:
+        await message.answer(text='good bro')
+
+
+
+
+
+
+
+
+async def register_message_handlers_user():
+    '''Registry message handlers there.
     '''
     dp.message.register(
         start_change,
         F.text == 'Обменять валюту',
         FSMSteps.INIT_STATE
     )
-    # dp.message.register(
-    #     command_help,
-    #     Command(commands=['help']),
-    #     FSMSteps.INIT_STATE
-    # )
-    # dp.message.register(
-    #     work_time,
-    #     Command(commands=['work_time']),
-    #     FSMSteps.INIT_STATE
-    # )
+    dp.message.register(
+        set_amount_check,
+        F.text,
+        FSMSteps.SET_AMOUNT_STATE
+    )
 
 
 
-
-
+async def register_callback_handler_user():
+    '''Register callback_querry handlers there.
+    '''
+    dp.callback_query.register(
+        show_offer,
+        CurrencyData.filter()
+    )
+    dp.callback_query.register(
+        set_amount,
+        OfferData.filter()
+    )
 
 
 

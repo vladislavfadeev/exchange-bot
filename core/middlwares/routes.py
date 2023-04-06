@@ -12,7 +12,7 @@ class HomeRoutes:
 class UserRoutes:
     '''Routes fot "user" handlers.
     '''
-    ...
+    offer: str
 
 
 @dataclass
@@ -33,7 +33,7 @@ class KeysRoutes:
 class Routes:
     
     homeRoutes: HomeRoutes
-    # userRoutes: UserRoutes
+    userRoutes: UserRoutes
     # changerRoutes: ChangerRoutes
     keysRoutes: KeysRoutes
 
@@ -45,9 +45,9 @@ def get_routes():
             userInit='/api/v1/user',
 
         ),
-        # userRoutes = UserRoutes(
-        #     ...
-        # ),
+        userRoutes = UserRoutes(
+            offer='/api/v1/offer'
+        ),
         # changerRoutes = ChangerRoutes(
         #     ...
         # ),
