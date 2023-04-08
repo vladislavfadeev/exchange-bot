@@ -1,3 +1,4 @@
+from typing import Callable
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.fsm.context import FSMContext
 from aiogram.types.callback_query import CallbackQuery
@@ -11,14 +12,16 @@ from core.utils.bot_fsm import FSMSteps
 from core.utils import msg_var as msg
 from core.keyboards import user_kb
 from core.keyboards.callbackdata import (
+    AmountData,
     CurrencyData,
     OfferData,
+    SetBuyBankData,
+    SetSellBankData,
 )
 from core.middlwares.exceptions import (
     MinAmountError,
     MaxAmountError,
 )
-
 
 
 
@@ -65,7 +68,8 @@ async def show_offer(
         builder.button(
             text=f'🔥 Обменять {value["currency"]} тут 🔥',
             callback_data=OfferData(
-                id=value['id']
+                id=value['id'],
+                isReturned=False
             )
         )
 
@@ -83,18 +87,33 @@ async def set_amount(
     ):
     '''
     '''
-    offerData = await state.get_data()
+    if callback_data.isReturned:
 
-    for i in offerData['offerList']:
-        if i['id'] == callback_data.id:
-            await state.update_data(selectedOffer = i)
-            offerData = i
-    
-    await bot.send_message(
-        call.from_user.id,
-        text= await msg_maker.set_amount_msg_maker(offerData)
-    )
-    await state.set_state(FSMSteps.SET_AMOUNT_STATE)
+        data = await state.get_data()
+        offerData = data['selectedOffer']
+        
+        await bot.send_message(
+            call.from_user.id,
+            text = await msg_maker.set_amount_returned_msg_maker(offerData)
+        )
+
+    else:
+
+        offerData = await state.get_data()
+
+        for i in offerData['offerList']:
+            if i['id'] == callback_data.id:
+            
+                await state.update_data(selectedOffer = i)
+                await state.update_data(offerList = {})
+                offerData = i
+
+        await bot.send_message(
+            call.from_user.id,
+            text = await msg_maker.set_amount_msg_maker(offerData)
+        )
+
+        await state.set_state(FSMSteps.SET_AMOUNT_STATE)
     
 
 async def set_amount_check(message: Message, state: FSMContext):
@@ -131,11 +150,81 @@ async def set_amount_check(message: Message, state: FSMContext):
         )
 
     else:
-        await message.answer(text='good bro')
+        await state.update_data(sellAmount = amount)
+        await message.answer(
+            text= await msg_maker.show_user_buy_amount(
+                amount,
+                offerData['rate'],
+                offerData['currency']
+            ),
+            reply_markup= await user_kb.set_amount_check_inlkb()
+        )
 
 
+async def choose_sell_bank(
+        call: CallbackQuery,
+        state: FSMContext,
+        callback_data: AmountData   
+    ):
+    '''
+    '''
+    await state.set_state(FSMSteps.SET_SELL_BANK)
+    data = await state.get_data()
+    offerData = data['selectedOffer']
+
+    filter_data = f'?owner={offerData["owner"]}&isActive=True&search={offerData["currency"]}'
+    banks = await SimpleAPI.get(
+        r.userRoutes.changerBanks,
+        filter_data
+    )
+
+    await bot.send_message(
+        call.from_user.id,
+        text= await msg_maker.set_sell_bank(offerData['currency']),
+        reply_markup= await user_kb.set_sell_bank(banks)
+    )
+    
+
+async def choose_buy_bank(
+        call: CallbackQuery,
+        state: FSMContext,
+        callback_data: SetSellBankData
+    ):
+    '''
+    '''
+    await state.update_data(sellBank = callback_data.id)
+    await state.set_state(FSMSteps.SET_BUY_BANK_INIT)
+
+    filter_data = f'?owner={call.from_user.id}&isActive=True&search=MNT'
+    banks = await SimpleAPI.get(r.userRoutes.userBanks, filter_data)
+
+    if len(banks.json()) and not callback_data.setNew:
+
+        await bot.send_message(
+            call.from_user.id,
+            text = await msg_maker.choose_user_bank_from_db(),
+            reply_markup= await user_kb.choose_user_bank_from_db(banks)
+        )
+
+    else:
+
+        banksName = await SimpleAPI.get(r.userRoutes.banksNameList)
+
+        await bot.send_message(
+            call.from_user.id,
+            text='Выберите банк из списка:',
+            reply_markup= await user_kb.choose_bank_name_from_list(banksName)
+        )
 
 
+async def choose_buy_bank_next(
+        call: CallbackQuery,
+        state: FSMContext,
+        callback_data: SetBuyBankData
+    ):
+    '''
+    '''
+    await state.update_data(buyBank = callback_data)
 
 
 
@@ -153,6 +242,11 @@ async def register_message_handlers_user():
         F.text,
         FSMSteps.SET_AMOUNT_STATE
     )
+    dp.message.register(
+        choose_sell_bank,
+        F.text,
+        FSMSteps.SET_SELL_BANK
+    )
 
 
 
@@ -166,6 +260,18 @@ async def register_callback_handler_user():
     dp.callback_query.register(
         set_amount,
         OfferData.filter()
+    )
+    dp.callback_query.register(
+        choose_sell_bank,
+        AmountData.filter()
+    )
+    dp.callback_query.register(
+        choose_buy_bank,
+        SetSellBankData.filter()
+    )
+    dp.callback_query.register(
+        choose_buy_bank_next,
+        SetBuyBankData.filter()
     )
 
 

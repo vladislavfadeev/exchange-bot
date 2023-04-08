@@ -13,6 +13,9 @@ class UserRoutes:
     '''Routes fot "user" handlers.
     '''
     offer: str
+    changerBanks: str
+    userBanks: str
+    banksNameList: str
 
 
 @dataclass
@@ -46,7 +49,10 @@ def get_routes():
 
         ),
         userRoutes = UserRoutes(
-            offer='/api/v1/offer'
+            offer='/api/v1/offer',
+            changerBanks='api/v1/changer_banks',
+            userBanks='api/v1/user_banks',
+            banksNameList='api/v1/banks_name_list'
         ),
         # changerRoutes = ChangerRoutes(
         #     ...
