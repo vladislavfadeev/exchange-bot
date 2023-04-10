@@ -22,7 +22,7 @@ class UserRoutes:
 class ChangerRoutes:
     '''Routes for "changer" handlers.
     '''
-    ...
+    changerProfile: str
 
 
 @dataclass
@@ -37,7 +37,7 @@ class Routes:
     
     homeRoutes: HomeRoutes
     userRoutes: UserRoutes
-    # changerRoutes: ChangerRoutes
+    changerRoutes: ChangerRoutes
     keysRoutes: KeysRoutes
 
 
@@ -54,9 +54,9 @@ def get_routes():
             userBanks='api/v1/user_banks',
             banksNameList='api/v1/banks_name_list'
         ),
-        # changerRoutes = ChangerRoutes(
-        #     ...
-        # ),
+        changerRoutes = ChangerRoutes(
+            changerProfile='api/v1/changer_profile'
+        ),
         keysRoutes = KeysRoutes(
             currencyList='/api/v1/currency',
         )

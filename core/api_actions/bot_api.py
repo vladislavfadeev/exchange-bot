@@ -13,14 +13,15 @@ client = httpx.AsyncClient(
 
 class SimpleAPI():
 
-    async def get(path, filter_data=None):
-
-        if filter_data:
-
-            response = await client.get(f'{path}{filter_data}')
-            return response
+    async def get(path, params=None):
         
-        response = await client.get(f'{path}')
+        response = await client.get(path, params=params)
+        return response
+
+
+    async def getDetails(path, detailUrl, params=None):
+
+        response = await client.get(f'{path}/{detailUrl}', params=params)
         return response
 
 
@@ -30,6 +31,7 @@ class SimpleAPI():
             data=data
         )
         return response
+    
     
     async def patch(path, data):
         response = await client.patch(

@@ -1,4 +1,3 @@
-from typing import Callable
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.fsm.context import FSMContext
 from aiogram.types.callback_query import CallbackQuery
@@ -51,12 +50,14 @@ async def show_offer(
     if callback_data.isReturned:
         await state.set_state(FSMSteps.INIT_CHANGE_STATE)
 
-    value = callback_data.name
-    filter_data = f'?currency={value}&isActive=True'
+    params = {
+        'currency': callback_data.name,
+        'isActive': True
+    }
     
     offers = await SimpleAPI.get(
         r.userRoutes.offer,
-        filter_data
+        params
     )
     await state.update_data(offerList = offers.json())
     messages = await msg_maker.offer_list_msg_maker(offers.json())
@@ -172,10 +173,15 @@ async def choose_sell_bank(
     data = await state.get_data()
     offerData = data['selectedOffer']
 
-    filter_data = f'?owner={offerData["owner"]}&isActive=True&search={offerData["currency"]}'
+    params = {
+        'owner': offerData["owner"],
+        'isActive': True,
+        'search': offerData["currency"]
+    }
+
     banks = await SimpleAPI.get(
         r.userRoutes.changerBanks,
-        filter_data
+        params
     )
 
     await bot.send_message(
@@ -192,14 +198,17 @@ async def choose_buy_bank(
     ):
     '''
     '''
-    await state.update_data(sellBank = callback_data.id)
     await state.set_state(FSMSteps.SET_BUY_BANK_INIT)
 
-    filter_data = f'?owner={call.from_user.id}&isActive=True&search=MNT'
-    banks = await SimpleAPI.get(r.userRoutes.userBanks, filter_data)
+    params = {
+        'owner': call.from_user.id,
+        'isActive': True
+    }
+    banks = await SimpleAPI.get(r.userRoutes.userBanks, params)
 
     if len(banks.json()) and not callback_data.setNew:
 
+        await state.update_data(sellBank = callback_data.id)        
         await bot.send_message(
             call.from_user.id,
             text = await msg_maker.choose_user_bank_from_db(),
@@ -207,6 +216,8 @@ async def choose_buy_bank(
         )
 
     else:
+        if not callback_data.setNew:
+            await state.update_data(sellBank = callback_data.id)
 
         banksName = await SimpleAPI.get(r.userRoutes.banksNameList)
 
@@ -217,14 +228,87 @@ async def choose_buy_bank(
         )
 
 
-async def choose_buy_bank_next(
+async def choose_new_buy_bank_next(
         call: CallbackQuery,
         state: FSMContext,
         callback_data: SetBuyBankData
     ):
     '''
     '''
-    await state.update_data(buyBank = callback_data)
+    await state.update_data(buyBank = callback_data.bankName)
+    await state.set_state(FSMSteps.SET_BUY_BANK_ACCOUNT)
+    await bot.send_message(
+        call.from_user.id,
+        text= await msg_maker.set_buy_bank_account(
+            callback_data.bankName
+        )
+    )
+
+
+async def apply_new_buy_bank(message: Message, state: FSMContext):
+    '''
+    '''
+    account = message.text
+    allData = await state.get_data()
+    bankName = allData['buyBank']
+    changerId = allData['selectedOffer']['owner']
+    
+    postData = {
+        "name": bankName,
+        "bankAccount": account,
+        "owner": message.from_user.id,
+        "currency": "3",
+        "isActive": True        
+    }
+
+    account = await SimpleAPI.post(r.userRoutes.userBanks, postData)
+    await bot.send_message(
+        changerId,
+        text= await msg_maker.changer_inform(changerId, allData)
+    )
+    await message.answer( 
+        text= await msg_maker.complete_set_new_bank(allData)
+    )
+    await state.update_data(userAccount = account.json())
+    await state.set_state(FSMSteps.GET_USER_PROOF)
+
+
+async def use_old_buy_bank(
+        call: CallbackQuery,
+        state: FSMContext,
+        callback_data: SetBuyBankData):
+    '''
+    '''
+    allData = await state.get_data()
+    changerId = allData['selectedOffer']['owner']
+    accountId = callback_data.id
+    
+    userAccount = await SimpleAPI.getDetails(r.userRoutes.userBanks, accountId)
+    await state.update_data(userAccount = userAccount.json())
+
+    await bot.send_message(
+        changerId,
+        text= await msg_maker.changer_inform(changerId, allData)
+    )
+    await state.set_state(FSMSteps.GET_USER_PROOF)
+
+
+async def get_user_proof(message: Message, state: FSMContext):
+    '''
+    '''
+    await message.answer(text='tyt')
+    if message.photo:
+        # import json
+        file = await bot.get_file(message.photo[-1].file_id)
+        await bot.download_file(file.file_path, f'{message.from_user.id} - photo.jpg')
+
+        # json_str = json.dumps(message.dict(), default=str)
+        # print(json_str)
+
+    if F.document:
+        file = await bot.get_file(message.document.file_id)
+        await bot.download_file(file.file_path, f'{message.from_user.id} -- proof.jpg')
+
 
 
 
@@ -247,7 +331,16 @@ async def register_message_handlers_user():
         F.text,
         FSMSteps.SET_SELL_BANK
     )
-
+    dp.message.register(
+        apply_new_buy_bank,
+        F.text,
+        FSMSteps.SET_BUY_BANK_ACCOUNT
+    )
+    dp.message.register(
+        get_user_proof,
+        F.content_type.in_({'photo', 'document'}),
+        FSMSteps.GET_USER_PROOF
+    )
 
 
 async def register_callback_handler_user():
@@ -270,188 +363,11 @@ async def register_callback_handler_user():
         SetSellBankData.filter()
     )
     dp.callback_query.register(
-        choose_buy_bank_next,
-        SetBuyBankData.filter()
+        choose_new_buy_bank_next,
+        SetBuyBankData.filter(F.setNew == True)
+    )
+    dp.callback_query.register(
+        use_old_buy_bank,
+        SetBuyBankData.filter(F.setNew == False & F.id != 0)
     )
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# from aiogram import types, Dispatcher
-# from aiogram.dispatcher.filters.state import State, StatesGroup
-# from aiogram.dispatcher import FSMContext
-# from aiogram.dispatcher.filters import Text
-# from create_bot import dp, bot
-# from keyboard import customer_kb, main_kb
-# import variables.service_message as sm
-# import variables.msg_maker as msg_maker
-# from api_actions import user_api
-# from handlers import changers
-# from datetime import datetime
-
-
-
-# class FSMRequest(StatesGroup):
-#     set_currency = State()
-#     set_amount = State()
-#     set_rate = State()
-#     open_request = State()
-#     wait_response = State()
-#     response = State()
-#     set_choice = State()
-#     get_proof = State()
-#     transaction = State()
-
-
-
-# ### Выбор валютной пары.
-# async def set_currency_pair(message : types.Message, state: FSMContext):
-#     await FSMRequest.set_currency.set()
-#     await bot.send_message(message.from_user.id, text=sm.start_currency_choice, 
-#                             reply_markup = customer_kb.exchange_cancel_kb)
-#     await bot.send_message(message.from_user.id, text=sm.currency_choice, 
-#                             reply_markup = await customer_kb.curr_pair_kb())
-#     await FSMRequest.next()
-    
-
-# @dp.callback_query_handler(customer_kb.curr_pair_kb_cbd.filter(
-#                                         action=['set_pair']), 
-#                                         state= FSMRequest.set_amount)
-# async def set_amount_func(message: types.Message, callback_data: dict,
-#                           state: FSMContext):
-#     async with state.proxy() as data:
-#         data['currency_pair_id'] = callback_data.get('pair')
-#     await bot.send_message(message.from_user.id, text=sm.enter_amount)
-#     await FSMRequest.next()
-
-
-# async def set_user_rate(message: types.Message, state: FSMContext):
-#     async with state.proxy() as data:
-#         data['amount'] = message.text
-#     await bot.send_message(message.from_user.id, text=sm.enter_rate)
-#     await FSMRequest.next()
-
-
-# async def open_request_func(message: types.Message, state: FSMContext):
-#     async with state.proxy() as data:
-#         data['customer_id'] = message.from_user.id
-#         data['sell_rate'] = message.text
-#         data['customer_bank'] = 'Sber'
-#     request = await user_api.insert_request_todb(data._data)
-#     await changers.send_user_request(request)
-#     await bot.send_message(message.from_user.id, text=sm.request_is_open)
-#     await state.finish()
-
-
-# async def send_chngr_response(data_sr, account):
-#     await bot.send_message(
-#                     data_sr['post']['customer_id'], 
-#                     text= await msg_maker.response_msg_maker(data_sr),
-#                     reply_markup= await customer_kb.cust_choise_kb(data_sr, account))
-    
-
-# @dp.callback_query_handler(customer_kb.cust_choise_kb_cbd.filter(
-#                                         action=['set_choice']))
-# async def user_choise(message: types.Message, callback_data: dict,
-#                       state: FSMContext):
-#     await FSMRequest.set_choice.set()
-#     async with state.proxy() as data:
-#         data['response_id'] = callback_data.get('resp_id'),
-#         data['changer_account'] = callback_data.get('account')
-#     await bot.send_message(message.from_user.id, text=sm.enter_bank_account)
-
-
-# async def enter_user_account(message: types.Message, state: FSMContext):
-#     async with state.proxy() as data:
-#         data['cust_bank_account'] = message.text
-#     data_sr = await user_api.APISimpleMethods.api_post('/api/v1/customer-choice', data._data)
-#     msg = await msg_maker.choice_msg_maker(data_sr)
-#     await bot.send_message(message.from_user.id, text=msg)
-#     async with state.proxy() as data:
-#         data['choice_id'] = data_sr['post']['id']
-#     await FSMRequest.next()
-
-
-# async def load_proof(message: types.Message, state : FSMContext):
-#     async with state.proxy() as data:
-#         post_data = {
-#             "post_choice_id": data['choice_id'],
-#             "user_proof": message.photo[0].file_id
-#         }
-#     print(post_data)
-#     data_sr = await user_api.APISimpleMethods.api_post('/api/v1/transaction', post_data)
-#     await changers.send_user_transaction(data_sr)
-#     await bot.send_message(message.from_user.id, text='Данные отправлены обменнику, ожидайте перевод')
-#     await state.finish()
-
-
-# async def send_changer_transaction(data_sr):
-#     await FSMRequest.transaction.set()
-#     inline_kb = await customer_kb.user_accept_kb(data_sr['id'])
-#     await bot.send_photo(data_sr['choice_id']['customer_id'], 
-#                          data_sr['changer_proof'], 
-#                          'Обменник выполнил перевод',
-#                          reply_markup=inline_kb)
-
-
-# @dp.callback_query_handler(customer_kb.accept_user_trn_kb_cbd.filter(
-#                                         action=['accept_usr']))
-# async def accept_transaction(message: types.Message, callback_data: dict,
-#                              state: FSMContext):
-#     async with state.proxy() as data:
-#         id = callback_data.get('tr_id')
-#         data['customer_accept'] = True
-#         data['customer_accept_date'] = datetime.now()
-#     await user_api.APISimpleMethods.api_patch(f'/api/v1/transaction/{id}', data=data._data)
-#     await bot.send_message(message.from_user.id, sm.end_message, 
-#                            reply_markup=main_kb.customer_start_key)
-#     await state.finish()
-    
-
-    
-    
-
-
-
-
-
-
-
-
-#     # for changer in changers:
-#     #     await bot.send_message(changer, f'Здарова, заебал - {amount}, {chtoto}')
-
-# ''' Блок ответа на иформационные кнопки вне состояния '''
-# ### Вывод информации о истории заказов.
-# ### Функтия не имеет соответсвующей кнопки в блоке кнопок! Для вывода потребуется команда "История заказов", либо установка кнопки на панель.
-# # async def start_request(message: types.Message):
-# #     value = await sqlite_db.sql_show_order_history(message.from_user.id)
-# #     op = ''
-# #     summ = 0
-# #     for i in value:
-# #         for r in i:
-# #             char = f'Заказ № {i[2]} | Дата: {i[3]} | Сумма {i[5]} руб.\nАдрес самовывоза: {i[4]}\n\n'
-# #         op += char
-# #         summ += float(i[5])
-# #     await bot.send_message(message.from_user.id, text=f'История ваших заказов:\n\n{op}\n\nОбщая сумма ваших заказов: {summ} руб.')
-
-
-# ### Регистрируем хендлеры.
-# def register_handlers_exchange(dp : Dispatcher):
-#     dp.register_message_handler(set_currency_pair, Text(equals= 'Заявка на обмен', ignore_case=True), state=None)
-#     dp.register_message_handler(set_user_rate,state=FSMRequest.set_rate)
-#     dp.register_message_handler(open_request_func,state=FSMRequest.open_request)
-#     dp.register_message_handler(enter_user_account,state=FSMRequest.set_choice)
-#     dp.register_message_handler(load_proof, content_types=['photo'], state=FSMRequest.get_proof)

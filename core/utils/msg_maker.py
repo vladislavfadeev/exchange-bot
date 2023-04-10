@@ -1,3 +1,5 @@
+from core.middlwares.routes import r    # Dataclass whith all api routes
+from core.api_actions.bot_api import SimpleAPI
 
 
 async def offer_list_msg_maker(offers):
@@ -74,7 +76,7 @@ async def show_user_buy_amount(sellAmount, rate, currency):
 async def set_sell_bank(currency):
 
     message = f'🏦 Выберете банк, на который вам будет удобно\
-                \nперевести 💸 {currency} 👇'
+                \nперевести 💸 {currency} обменнику 👇'
     
     return message
 
@@ -86,3 +88,58 @@ async def choose_user_bank_from_db():
                 \nодин из них либо указать новый. 👇'
     
     return message
+
+
+async def set_buy_bank_account(bankName):
+
+    message = f'💰 Укажите номер вашего счета в банке\
+                \n🏦 {bankName}, на который вы хотите\
+                \nполучить оплату от обменника.\
+                \n\n⚠️ Будьте предельно внимательны! ⚠️'
+    
+    return message
+
+
+async def complete_set_new_bank(allData):
+
+    sellAmount = allData['sellAmount']
+    offerData = allData['selectedOffer']
+
+    detaillUrl = allData["sellBank"]
+    account = await SimpleAPI.getDetails(r.userRoutes.changerBanks, detaillUrl)
+    acc = account.json()
+
+    message = f'👌 Ваши реквизиты приняты! 👌\
+                \n\n👉 Теперь выполните перевод {sellAmount} {offerData["currency"]}\
+                \nна счет обменника, по реквизитам ниже 👇\
+                \n\n🏦 Банк: {acc["name"]}\
+                \n💳 Счет: {acc["bankAccount"]}\
+                \n\n⚠️ Обязательно! ⚠️\
+                \n После перевода, ответным сообщением\
+                \nпришлите скриншот / фото\
+                \nэкрана (или чек) с информацией\
+                \nо платеже ⚠️'
+    
+    return message
+
+
+async def changer_inform(changerId, stateData):
+
+    changer =  await SimpleAPI.getDetails(r.changerRoutes.changerProfile, changerId)
+    c = changer.json()
+    summ = stateData["sellAmount"] * stateData["selectedOffer"]["rate"]
+
+    message = f'🔰 {c["name"]} здравствуйте!\
+                \n\nВашим предложением по покупке {stateData["selectedOffer"]["currency"]}\
+                \nзаинтересовался пользователь.\
+                \n🏦 Сейчас он получил банковские реквизиты\
+                \nдля перевода {stateData["selectedOffer"]["currency"]} {stateData["sellAmount"]} \
+                \nна ваш счет.\
+                \n\n⚠️ Ожидайте подтверждение перевода. ⚠️\
+                \n\nПосле чего, вам придут реквизиты пользователя\
+                \nна которые вы дожны будете перевести \
+                \n💰 {summ} MNT в соответсвии с предложенным\
+                \nранее вами курсом {stateData["selectedOffer"]["rate"]}'
+    
+    return message
+
