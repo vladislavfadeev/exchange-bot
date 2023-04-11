@@ -25,3 +25,8 @@ class SetBuyBankData(CallbackData, prefix='buy_bd'):
     id: int
     setNew: bool
     bankName: str
+
+
+class UserProofActions(CallbackData, prefix='upa'):
+    action: str
+    transferId: int

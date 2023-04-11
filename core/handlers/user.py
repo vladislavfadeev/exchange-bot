@@ -1,3 +1,4 @@
+from datetime import date
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.fsm.context import FSMContext
 from aiogram.types.callback_query import CallbackQuery
@@ -9,6 +10,7 @@ from core.utils import msg_maker, msg_var
 from core.api_actions.bot_api import SimpleAPI
 from core.utils.bot_fsm import FSMSteps
 from core.utils import msg_var as msg
+from core.keyboards import changer_kb
 from core.keyboards import user_kb
 from core.keyboards.callbackdata import (
     AmountData,
@@ -287,6 +289,11 @@ async def use_old_buy_bank(
     await state.update_data(userAccount = userAccount.json())
 
     await bot.send_message(
+        call.from_user.id,
+        text= await msg_maker.complete_set_new_bank(allData)
+    )
+
+    await bot.send_message(
         changerId,
         text= await msg_maker.changer_inform(changerId, allData)
     )
@@ -296,18 +303,71 @@ async def use_old_buy_bank(
 async def get_user_proof(message: Message, state: FSMContext):
     '''
     '''
-    await message.answer(text='tyt')
+
+    allData = await state.get_data()
+    changerId = allData['selectedOffer']['owner']
+    offerId = allData['selectedOffer']['id']
+    changerBank = allData['sellBank']
+    userBank = allData['userAccount']['id']
+    sellCurrency = allData['selectedOffer']['currency']
+    sellAmount = allData['sellAmount']
+    rate = allData['selectedOffer']['rate']
+    buyAmount = sellAmount * rate
+    accountId = message.from_user.id
+
     if message.photo:
-        # import json
-        file = await bot.get_file(message.photo[-1].file_id)
-        await bot.download_file(file.file_path, f'{message.from_user.id} - photo.jpg')
 
-        # json_str = json.dumps(message.dict(), default=str)
-        # print(json_str)
+        fileId = message.photo[-1].file_id
+        proofType = 'photo'
 
-    if F.document:
-        file = await bot.get_file(message.document.file_id)
-        await bot.download_file(file.file_path, f'{message.from_user.id} -- proof.jpg')
+    elif message.document:
+
+        fileId = message.document.file_id
+        proofType = 'document'
+
+    data = {
+        'changer': changerId,
+        'offer': offerId,
+        'user': accountId,
+        'changerBank': changerBank,
+        'userBank': userBank,
+        'sellCurrency': sellCurrency,
+        'buyCurrency': 'MNT',
+        'sellAmount': sellAmount,
+        'buyAmount': buyAmount,
+        'rate': rate,
+        'userSendMoneyDate': date.today(),
+        'userProofType': proofType,
+        'userProof': fileId,
+    }
+
+    response = await SimpleAPI.post(r.userRoutes.transactions, data=data)
+
+
+    if proofType == 'photo':
+
+        await bot.send_photo(
+            changerId,
+            photo = fileId,
+            caption= await msg_maker.accept_user_transfer(),
+            reply_markup= await changer_kb.accept_user_transfer(response.json()['id'])
+        )
+
+    if proofType == 'document':
+
+        await bot.send_document(
+            changerId, 
+            document= fileId,
+            caption= await msg_maker.accept_user_transfer(),
+            reply_markup= await changer_kb.accept_user_transfer(response.json()['id'])
+        )
+
+    await bot.send_message(
+        message.from_user.id,
+        text= await msg_maker.user_inform(buyAmount)
+        )
+
+
 
 
 
@@ -368,6 +428,6 @@ async def register_callback_handler_user():
     )
     dp.callback_query.register(
         use_old_buy_bank,
-        SetBuyBankData.filter(F.setNew == False & F.id != 0)
+        SetBuyBankData.filter((F.setNew == False) & (F.id != 0))
     )
 

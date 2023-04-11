@@ -16,6 +16,7 @@ class UserRoutes:
     changerBanks: str
     userBanks: str
     banksNameList: str
+    transactions : str
 
 
 @dataclass
@@ -52,7 +53,8 @@ def get_routes():
             offer='/api/v1/offer',
             changerBanks='api/v1/changer_banks',
             userBanks='api/v1/user_banks',
-            banksNameList='api/v1/banks_name_list'
+            banksNameList='api/v1/banks_name_list',
+            transactions='/api/v1/transactions'
         ),
         changerRoutes = ChangerRoutes(
             changerProfile='api/v1/changer_profile'

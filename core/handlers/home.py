@@ -8,7 +8,10 @@ from core.api_actions.bot_api import SimpleAPI
 from core.utils import msg_var as msg
 from core.utils.bot_fsm import FSMSteps
 from core.middlwares.routes import r    # Dataclass whith all api routes
+from datetime import date
 import json
+import os
+
 
 
 
@@ -54,31 +57,39 @@ async def msg_json(message: Message):
     print(json_str)
 
 
-async def file_info(message: Message):
-    # if message.photo:
-        # import json
-        # file = await bot.get_file(message.photo[-1].file_id)
-        # await bot.download_file(file.file_path, f'{message.from_user.id} - photo.jpg')
+# async def file_info(message: Message):
 
-        # json_str = json.dumps(message.dict(), default=str)
-        # print(json_str) https://api.telegram.org/file/bot<token>/<file_path>
+    # if message.document:
+    #     json_str = json.dumps(message.dict(), default=str)
+    #     print(json_str)
 
-    if message.document:
-        json_str = json.dumps(message.dict(), default=str)
-        print(json_str)
+    #     file1 = await bot.get_file(message.document.file_id)
+    #     print(message.document.file_id)
+    #     await bot.send_document('151436997', document= 'BQACAgIAAxkBAAIMnGQyl2KgWg9C8IpI3EspVDgpA4a-AAIMKwACc5KZSWJceE5Kb4_QLwQ')
+    #     await bot.download_file(file1.file_path, message.document.file_name)
+    # !dir = f'proof/{message.from_user.id}/{date.today()}'
 
-        # file1 = await bot.get_file(message.document.file_id)
-        print(message.document.file_id)
-        await bot.send_document('151436997', document= 'BQACAgIAAxkBAAIMnGQyl2KgWg9C8IpI3EspVDgpA4a-AAIMKwACc5KZSWJceE5Kb4_QLwQ')
-        # await bot.download_file(file1.file_path, message.document.file_name)
+    # !if not os.path.exists(dir):
+    #     os.makedirs(dir)
+
+    # !if message.photo:
+    #     await message.answer(text='photo')
+    #     file = await bot.get_file(message.photo[-1].file_id)
+    #     await bot.download_file(file.file_path, f'{dir}/{message.photo[-1].file_unique_id}.jpg')
+    #     # json_str = json.dumps(message.dict(), default=str)
+    #     # print(json_str)
+
+    # !elif message.document:
+    #     await message.answer(text='doc')
+    #     file = await bot.get_file(message.document.file_id)
+    #     await bot.download_file(file.file_path, f'{dir}/{message.document.file_name}')
 
 
 
 # Only for dev
 async def function_msg(message: Message):
     await message.answer('Any msg')
-    await bot.send_document('5934368607', document= 'BQACAgIAAxkBAAIMnGQyl2KgWg9C8IpI3EspVDgpA4a-AAIMKwACc5KZSWJceE5Kb4_QLwQ')
-
+    
 
 
 async def register_handlers_main():
@@ -101,7 +112,7 @@ async def register_handlers_main():
 
     # dev func
     dp.message.register(msg_json, F.text == 'get info')
-    dp.message.register(file_info, FSMSteps.INIT_STATE, F.document)
+    # dp.message.register(file_info, F.content_type.in_({'photo', 'document'}))
     dp.message.register(function_msg)
     
 

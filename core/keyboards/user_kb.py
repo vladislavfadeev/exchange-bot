@@ -1,7 +1,5 @@
 from aiogram.types import KeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
-from aiogram.types.inline_keyboard_markup import InlineKeyboardMarkup
-from aiogram.types.inline_keyboard_button import InlineKeyboardButton
 from core.api_actions.bot_api import SimpleAPI
 from core.middlwares.routes import r    # Dataclass whith all api routes
 from core.keyboards.callbackdata import (
