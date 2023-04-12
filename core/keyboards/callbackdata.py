@@ -30,3 +30,7 @@ class SetBuyBankData(CallbackData, prefix='buy_bd'):
 class UserProofActions(CallbackData, prefix='upa'):
     action: str
     transferId: int
+
+class ChangerProofActions(CallbackData, prefix='cpa'):
+    action: str
+    transfer: int

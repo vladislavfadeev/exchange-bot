@@ -18,7 +18,7 @@ import os
 async def command_start(message: Message, state: FSMContext):
     '''Handler ansver on command "/start"
     '''
-    await state.set_state(FSMSteps.INIT_STATE)
+    await state.set_state(FSMSteps.USER_INIT_STATE)
     await bot.send_message(
         message.from_user.id,
         text=msg.start_message, 
@@ -31,7 +31,33 @@ async def command_start(message: Message, state: FSMContext):
             "isActive": True
         }
     )
-    
+
+
+async def command_staff(message: Message, state: FSMContext):
+    '''Handler ansver on command "/staff"
+    '''
+    response = await SimpleAPI.getDetails(
+        r.changerRoutes.changerProfile,
+        message.from_user.id
+    )
+    if response.status_code == 404:
+        await message.answer(
+            text=msg.staff_404
+        )
+        await message.delete()
+
+    elif response.status_code == 200:
+        await message.answer(
+            text= msg.staff_hello
+        )
+        await message.delete()
+        await state.set_state(FSMSteps.CHANGER_INIT_STATE)
+
+    else:
+        await message.answer(
+            text= msg.staff_else
+        )
+
 
 async def command_help(message: Message):
     '''Handler ansver on command "/help"
@@ -100,14 +126,16 @@ async def register_handlers_main():
         Command(commands=['start'])
     )
     dp.message.register(
+        command_staff,
+        Command(commands=['staff'])
+    )
+    dp.message.register(
         command_help,
         Command(commands=['help']),
-        FSMSteps.INIT_STATE
     )
     dp.message.register(
         work_time,
         Command(commands=['work_time']),
-        FSMSteps.INIT_STATE
     )
 
     # dev func

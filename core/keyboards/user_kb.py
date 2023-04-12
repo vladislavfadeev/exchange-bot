@@ -6,6 +6,7 @@ from core.keyboards.callbackdata import (
     AmountData,
     CurrencyData,
     OfferData,
+    ChangerProofActions,
     SetBuyBankData,
     SetSellBankData,
 )
@@ -139,5 +140,26 @@ async def choose_bank_name_from_list(banksName):
     return builder.as_markup()
 
 
+async def accept_changer_transfer(transfer_id):
+    '''
+    '''
+    builder = InlineKeyboardBuilder()
+    actions = {
+        'accept': '🤝 Подтвердить получение',
+        'decline': '👎 Перевод не получил',
+        'admin': '⚠️ Связаться с админом'
+    
+    }
 
+    for action in actions.keys():
+        builder.button(
+            text=actions[action],
+            callback_data=ChangerProofActions(
+                action= action,
+                transferId=transfer_id
+            )
+        )
+    builder.adjust(1)
+
+    return builder.as_markup()
 

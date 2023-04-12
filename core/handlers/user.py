@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import datetime
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.fsm.context import FSMContext
 from aiogram.types.callback_query import CallbackQuery
@@ -336,7 +336,7 @@ async def get_user_proof(message: Message, state: FSMContext):
         'sellAmount': sellAmount,
         'buyAmount': buyAmount,
         'rate': rate,
-        'userSendMoneyDate': date.today(),
+        'userSendMoneyDate': datetime.now(),
         'userProofType': proofType,
         'userProof': fileId,
     }
@@ -366,6 +366,7 @@ async def get_user_proof(message: Message, state: FSMContext):
         message.from_user.id,
         text= await msg_maker.user_inform(buyAmount)
         )
+    await state.set_state(FSMSteps.WAIT_CHANGER_PROOF)
 
 
 

@@ -21,7 +21,10 @@ class SimpleAPI():
 
     async def getDetails(path, detailUrl, params=None):
 
-        response = await client.get(f'{path}/{detailUrl}', params=params)
+        response = await client.get(
+            f'{path}/{detailUrl}',
+            params=params
+        )
         return response
 
 
@@ -33,9 +36,9 @@ class SimpleAPI():
         return response
     
     
-    async def patch(path, data):
+    async def patch(path, detailUrl, data):
         response = await client.patch(
-            path,
+            f'{path}/{detailUrl}',
             data=data
         )
         return response

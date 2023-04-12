@@ -7,7 +7,8 @@ from dataclasses import dataclass
 class BotSettings:
     botToken: str
     adminId: int
-
+    troubleStaffId : int
+    troubleStaff: str
 
 @dataclass
 class APISettings:
@@ -29,11 +30,13 @@ def get_settings(path: str):
     return Settings(
         botSetting = BotSettings(
             botToken=env.str("TOKEN"),
-            adminId=env.int("ADMIN_ID")
+            adminId=env.int("ADMIN_ID"),
+            troubleStaff=env.str("TROUBLE_STAFF"),
+            troubleStaffId=env.int("TROUBLE_STAFF_ID")
         ),
         apiSettings = APISettings(
-            baseUrl=env.str('BASE_URL'),
-            authToken=env.str('BACKEND_AUTH_TOKEN'),
+            baseUrl=env.str("BASE_URL"),
+            authToken=env.str("BACKEND_AUTH_TOKEN"),
 
         )
     )
