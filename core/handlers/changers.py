@@ -32,10 +32,6 @@ async def accept_or_decline_user_transfer(
 
     if callback_data.action == 'accept':
 
-        patchData = {
-            'changerAcceptDate': datetime.now()
-        }
-
         await bot.send_message(
             transfer['user'],
             text= await msg_maker.accept_user_transfer2()
@@ -44,6 +40,10 @@ async def accept_or_decline_user_transfer(
             call.from_user.id,
             text= await msg_maker.accept_changer_transfer(transfer),
         )
+
+        patchData = {
+            'changerAcceptDate': datetime.now()
+        }
         await SimpleAPI.patch(
             r.changerRoutes.transactions,
             transfer['id'],
@@ -67,17 +67,79 @@ async def accept_or_decline_user_transfer(
         )
 
 
+async def get_changer_proof(message: Message, state: FSMContext):
+    '''
+    '''
+
+    allData = await state.get_data()
+    transferId = allData['transfer']['id']
+    userId = allData['transfer']['user']
+    buyAmount = allData['transfer']['buyAmount']
+
+
+    if message.photo:
+
+        fileId = message.photo[-1].file_id
+        proofType = 'photo'
+
+    elif message.document:
+
+        fileId = message.document.file_id
+        proofType = 'document'
+
+    data = {
+        'changerSendMoneyDate': datetime.now(),
+        'changerProofType': proofType,
+        'changerProof': fileId,
+    }
+
+    response = await SimpleAPI.patch(
+        r.changerRoutes.transactions,
+        transferId,
+        data=data)
+
+    if proofType == 'photo':
+
+        await bot.send_photo(
+            userId,
+            photo = fileId,
+            caption= await msg_maker.accept_changer_proof(transferId),
+            reply_markup= await user_kb.accept_changer_transfer(response.json()['id'])
+        )
+
+    if proofType == 'document':
+
+        await bot.send_document(
+            userId, 
+            document= fileId,
+            caption= await msg_maker.accept_changer_proof(),
+            reply_markup= await user_kb.accept_changer_transfer(response.json()['id'])
+        )
+
+    await bot.send_message(
+        message.from_user.id,
+        text= await msg_maker.changer_inform2(transferId)
+        )
+    await state.set_state(FSMSteps.CHANGER_INIT_STATE)
 
 
 
 
-async def register_message_handlers_user():
+
+
+
+
+
+async def register_message_handlers_changer():
     '''Registry message handlers there.
     '''
-    ...
+    dp.message.register(
+        get_changer_proof,
+        FSMSteps.GET_CHANGER_PROOF        
+    )
 
 
-async def register_callback_handler_user():
+async def register_callback_handler_changer():
     '''Register callback_querry handlers there.
     '''
     dp.callback_query.register(

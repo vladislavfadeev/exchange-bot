@@ -33,4 +33,4 @@ class UserProofActions(CallbackData, prefix='upa'):
 
 class ChangerProofActions(CallbackData, prefix='cpa'):
     action: str
-    transfer: int
+    transferId: int

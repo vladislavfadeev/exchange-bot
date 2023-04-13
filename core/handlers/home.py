@@ -76,12 +76,30 @@ async def work_time(message: Message):
         text=message.from_user.id  # Now it send userId
     )
 
+
+async def command_cancel(message: Message, state: FSMContext):
+    '''
+    '''
+    await message.answer('Отменено')
+    await bot.send_message(
+        message.from_user.id,
+        text=msg.start_message, 
+        reply_markup=user_home_button()
+    )
+    await state.set_state(FSMSteps.USER_INIT_STATE)
+
+
+
 # Only for dev
 async def msg_json(message: Message):
     await message.answer('Printed to console')
-    json_str = json.dumps(message.dict(), default=str)
-    print(json_str)
-
+    # json_str = json.dumps(message.dict(), default=str)
+    # print(json_str)
+    res = await bot.send_message(
+        message.from_user.id,
+        text='yh'
+    )
+    print(json.dumps(res.dict(), default=str))
 
 # async def file_info(message: Message):
 
@@ -112,9 +130,6 @@ async def msg_json(message: Message):
 
 
 
-# Only for dev
-async def function_msg(message: Message):
-    await message.answer('Any msg')
     
 
 
@@ -137,11 +152,16 @@ async def register_handlers_main():
         work_time,
         Command(commands=['work_time']),
     )
+    dp.message.register(
+        command_cancel,
+        F.text == 'Отмена'
+    )
 
+                        
     # dev func
     dp.message.register(msg_json, F.text == 'get info')
     # dp.message.register(file_info, F.content_type.in_({'photo', 'document'}))
-    dp.message.register(function_msg)
+
     
 
 

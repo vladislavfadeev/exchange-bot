@@ -4,6 +4,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types.callback_query import CallbackQuery
 from aiogram.types import Message
 from aiogram import F
+from core.middlwares.settigns import appSettings
+from core.keyboards.home_kb import user_home_button
 from create_bot import bot, dp
 from core.middlwares.routes import r    # Dataclass whith all api routes
 from core.utils import msg_maker, msg_var
@@ -14,6 +16,7 @@ from core.keyboards import changer_kb
 from core.keyboards import user_kb
 from core.keyboards.callbackdata import (
     AmountData,
+    ChangerProofActions,
     CurrencyData,
     OfferData,
     SetBuyBankData,
@@ -278,7 +281,8 @@ async def apply_new_buy_bank(message: Message, state: FSMContext):
 async def use_old_buy_bank(
         call: CallbackQuery,
         state: FSMContext,
-        callback_data: SetBuyBankData):
+        callback_data: SetBuyBankData
+    ):
     '''
     '''
     allData = await state.get_data()
@@ -369,6 +373,90 @@ async def get_user_proof(message: Message, state: FSMContext):
     await state.set_state(FSMSteps.WAIT_CHANGER_PROOF)
 
 
+async def accept_or_decline_changer_transfer(
+        call: CallbackQuery,
+        state: FSMContext,
+        callback_data: ChangerProofActions
+    ):
+    '''
+    '''
+    response = await SimpleAPI.getDetails(
+        r.changerRoutes.transactions,
+        callback_data.transferId
+    )
+    transfer = response.json()
+    await state.update_data(transfer = transfer)
+
+    if callback_data.action == 'accept':
+
+        await bot.send_message(
+            transfer['changer'],
+            text= await msg_maker.accept_changer_transfer2(transfer['id'])
+        )
+        await bot.send_message(
+            call.from_user.id,
+            text= await msg_maker.accept_changer_transfer3(transfer['id']),
+            reply_markup=user_home_button()
+        )
+
+        patchData = {
+            'userAcceptDate': datetime.now(),
+            'isCompleted': True
+        }
+        await SimpleAPI.patch(
+            r.userRoutes.transactions,
+            transfer['id'],
+            data=patchData
+        )
+        await state.set_state(FSMSteps.USER_INIT_STATE)
+
+    elif callback_data.action == 'decline':
+        
+        await bot.send_message(
+            transfer['changer'],
+            text= await msg_maker.decline_changer_transfer()
+        )
+        await bot.send_message(
+            call.from_user.id,
+            text=msg_maker.decline_changer_transfer2(transfer['id'])
+        )
+        await bot.send_message(
+            appSettings.botSetting.troubleStaffId,
+            text='Пользователь не принял перевод обменника'
+        )
+        if transfer['userProofType'] == 'photo':
+            await bot.send_photo(
+                appSettings.botSetting.troubleStaffId,
+                photo= transfer['userProof'],
+                caption= f'Подтверждение пользователя. Заявка {transfer["id"]}'
+            )
+        elif transfer['userProofType'] == 'document':
+            await bot.send_document(
+                appSettings.botSetting.troubleStaffId,
+                document= transfer['userProof'],
+                caption= f'Подтверждение пользователя. Заявка {transfer["id"]}'
+            )
+
+        if transfer['changerProofType'] == 'photo':
+            await bot.send_photo(
+                appSettings.botSetting.troubleStaffId,
+                photo= transfer['changerProof'],
+                caption= f'Подтверждение обменника. Заявка {transfer["id"]}'
+            )
+        elif transfer['changerProofType'] == 'document':
+            await bot.send_document(
+                appSettings.botSetting.troubleStaffId,
+                document= transfer['changerProof'],
+                caption= f'Подтверждение обменника. Заявка {transfer["id"]}'
+            )
+
+    elif callback_data.action == 'admin':
+        await bot.send_message(
+            call.from_user.id,
+            text= await msg_maker.contact_to_admin()
+        )
+
+
 
 
 
@@ -380,7 +468,7 @@ async def register_message_handlers_user():
     dp.message.register(
         start_change,
         F.text == 'Обменять валюту',
-        FSMSteps.INIT_STATE
+        FSMSteps.USER_INIT_STATE
     )
     dp.message.register(
         set_amount_check,
@@ -431,4 +519,7 @@ async def register_callback_handler_user():
         use_old_buy_bank,
         SetBuyBankData.filter((F.setNew == False) & (F.id != 0))
     )
-
+    dp.callback_query.register(
+        accept_or_decline_changer_transfer,
+        ChangerProofActions.filter()
+    )

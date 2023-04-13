@@ -4,6 +4,10 @@ from core.handlers.user import (
     register_message_handlers_user,
     register_callback_handler_user
 )
+from core.handlers.changers import (
+    register_message_handlers_changer,
+    register_callback_handler_changer
+)
 from create_bot import bot, dp
 import asyncio
 import logging
@@ -21,6 +25,8 @@ async def start_bot():
     
     await register_message_handlers_user()
     await register_callback_handler_user()
+    await register_message_handlers_changer()
+    await register_callback_handler_changer()
     await register_handlers_main()
     
 
