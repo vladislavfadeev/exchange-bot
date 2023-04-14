@@ -91,18 +91,24 @@ async def command_cancel(message: Message, state: FSMContext):
 
 
 # Only for dev
-async def msg_json(message: Message):
+async def msg_json(message: Message, state: FSMContext):
     await message.answer('Printed to console')
+    fileId = message.document.file_id
+    await state.update_data(fileId = fileId)
     # json_str = json.dumps(message.dict(), default=str)
     # print(json_str)
-    res = await bot.send_message(
-        message.from_user.id,
-        text='yh'
-    )
-    print(json.dumps(res.dict(), default=str))
+    # res = await bot.send_message(
+    #     message.from_user.id,
+    #     text='yh'
+    # )
+    # print(json.dumps(res.dict(), default=str))
+    await message.delete()
+    
 
-# async def file_info(message: Message):
+async def file_info(message: Message, state: FSMContext):
 
+    data = await state.get_data()
+    await bot.send_document('151436997', document= data['fileId'])
     # if message.document:
     #     json_str = json.dumps(message.dict(), default=str)
     #     print(json_str)
@@ -159,8 +165,9 @@ async def register_handlers_main():
 
                         
     # dev func
-    dp.message.register(msg_json, F.text == 'get info')
+    dp.message.register(msg_json, F.document)
     # dp.message.register(file_info, F.content_type.in_({'photo', 'document'}))
+    dp.message.register(file_info, F.text == 'get file')
 
     
 
