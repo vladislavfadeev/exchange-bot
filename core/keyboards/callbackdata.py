@@ -1,4 +1,9 @@
+from sys import prefix
 from aiogram.filters.callback_data import CallbackData
+
+
+class HomeData(CallbackData, prefix='home'):
+    action: str
 
 
 class CurrencyData(CallbackData, prefix='curr'):
@@ -31,6 +36,11 @@ class UserProofActions(CallbackData, prefix='upa'):
     action: str
     transferId: int
 
+
 class ChangerProofActions(CallbackData, prefix='cpa'):
     action: str
     transferId: int
+
+
+class TestData(CallbackData, prefix='test'):
+    url: str

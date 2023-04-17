@@ -274,6 +274,8 @@ async def decline_changer_transfer(transferId):
                 \nо внештатной ситауции и во всем разбирается.\
                 \nВ ближайшее время он с вами свяжется'
     
+    return message
+    
 
 async def decline_changer_transfer2(transferId):
 

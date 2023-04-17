@@ -1,14 +1,18 @@
+
 from aiogram.types import KeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 from core.api_actions.bot_api import SimpleAPI
 from core.middlwares.routes import r    # Dataclass whith all api routes
+from core.middlwares.settigns import appSettings
 from core.keyboards.callbackdata import (
     AmountData,
     CurrencyData,
+    HomeData,
     OfferData,
     ChangerProofActions,
     SetBuyBankData,
     SetSellBankData,
+    TestData,
 )
 
 
@@ -27,20 +31,36 @@ async def set_sell_currency_button():
                 isReturned=False
             )
         )
+    builder.button(
+        text='↩ Отменить',
+        callback_data= HomeData(
+            action='cancel'
+        )
+    )
     builder.adjust(3)
 
     return builder.as_markup()
 
 
-def user_cancel_button():
+async def user_cancel_buttons_offerslist():
     '''Build RelyKeyboardButton for cancel all process and retun to INIT_STATE.
     '''
-    builder = ReplyKeyboardBuilder()
-    builder.add(KeyboardButton(text='Отменить'))
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text='↩ Вернуться к выбору валюты',
+        callback_data=HomeData(
+            action='change'
+        )
+    )
+    builder.button(
+        text='↩ Вернуться на главную',
+        callback_data=HomeData(
+            action='cancel'
+        )
+    )
+    builder.adjust(1)
 
-    return builder.as_markup(
-        resize_keyboard=True,
-    ) 
+    return builder.as_markup() 
 
 
 async def user_return_to_offer_choice_button(offerData):
@@ -163,3 +183,18 @@ async def accept_changer_transfer(transfer_id):
 
     return builder.as_markup()
 
+
+async def get_trouble_staff_contact():
+
+    contact = appSettings.botSetting.troubleStaffId
+    builder = InlineKeyboardBuilder()
+
+    builder.button(
+        text='👮🏻 Связаться с админом',
+        url= f'tg://user?id={contact}',
+        callback_data=TestData(
+            url= 'urllll'
+        )
+    )
+
+    return builder.as_markup()

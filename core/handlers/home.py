@@ -1,9 +1,15 @@
+import asyncio
+import logging
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import Command
 from aiogram.types import Message
-from create_bot import dp, bot
+from aiogram.types.callback_query import CallbackQuery
+from core.keyboards import home_kb
+from core.keyboards.callbackdata import HomeData
+from core.middlwares.settigns import MainMSG
+from create_bot import dp, bot, scheduler
 from aiogram import F
-from core.keyboards.home_kb import user_home_button
+from core.keyboards.home_kb import user_home_button, user_home_inline_button
 from core.api_actions.bot_api import SimpleAPI
 from core.utils import msg_var as msg
 from core.utils.bot_fsm import FSMSteps
@@ -14,23 +20,70 @@ import os
 
 
 
+async def some_func(state: FSMContext):
+
+    data = await state.get_data()
+    main_msg = data['mainMsg']
+    await main_msg.delete()
+    new_msg = await bot.send_message(
+        main_msg.chat.id,
+        text=msg.start_message, 
+        reply_markup= await user_home_inline_button()
+    )
+    await state.update_data(mainMsg = new_msg)
+
+
 
 async def command_start(message: Message, state: FSMContext):
     '''Handler ansver on command "/start"
     '''
+    await message.delete()
+    data = await state.get_data()
+
+    if data.get('mainMsg'):
+        try:
+            await bot.delete_message(
+                chat_id= message.from_user.id,
+                message_id=data['mainMsg'].message_id
+            )
+            mainMessage =  await bot.send_message(
+                message.from_user.id,
+                text=msg.start_message, 
+                reply_markup= await user_home_inline_button()
+            )
+            await state.update_data(mainMsg = mainMessage)
+            
+        except Exception as e:
+            logging.exception(e)
+            data = await state.get_data()
+            await state.update_data(messageList=[])
+            msg_list = data['messageList']
+
+            for i in range(len(msg_list)):
+                await msg_list[i].delete()
+            
+            mainMessage =  await bot.send_message(
+                message.from_user.id,
+                text=msg.start_message,
+                reply_markup= await user_home_inline_button()
+            )
+            await state.update_data(mainMsg = mainMessage)
+    else:
+        mainMessage =  await bot.send_message(
+            message.from_user.id,
+            text=msg.start_message, 
+            reply_markup= await user_home_inline_button()
+        )
+        await SimpleAPI.post(
+            r.homeRoutes.userInit,
+            {
+                'tg': message.from_user.id,
+                "isActive": True
+            }
+        )
+        await state.update_data(mainMsg = mainMessage)
+        scheduler.add_job(some_func, 'interval', seconds=10, args=(state, ))
     await state.set_state(FSMSteps.USER_INIT_STATE)
-    await bot.send_message(
-        message.from_user.id,
-        text=msg.start_message, 
-        reply_markup=user_home_button()
-    )
-    await SimpleAPI.post(
-        r.homeRoutes.userInit,
-        {
-            'tg': message.from_user.id,
-            "isActive": True
-        }
-    )
 
 
 async def command_staff(message: Message, state: FSMContext):
@@ -41,15 +94,21 @@ async def command_staff(message: Message, state: FSMContext):
         message.from_user.id
     )
     if response.status_code == 404:
-        await message.answer(
+        info_msg = await message.answer(
             text=msg.staff_404
         )
         await message.delete()
+        await asyncio.sleep(3)
+        try:
+            await info_msg.delete()
+        except:
+            pass
 
     elif response.status_code == 200:
         await message.answer(
             text= msg.staff_hello
         )
+        
         await message.delete()
         await state.set_state(FSMSteps.CHANGER_INIT_STATE)
 
@@ -59,22 +118,83 @@ async def command_staff(message: Message, state: FSMContext):
         )
 
 
-async def command_help(message: Message):
-    '''Handler ansver on command "/help"
+async def user_main_menu(
+        call: CallbackQuery,
+        state: FSMContext,
+        callback_data: HomeData
+):
+    ''' Show "main" message
     '''
-    await bot.send_message(
-        message.from_user.id,
-        text=msg.start_help_message
+    if callback_data.action == 'cancel':
+        try:
+            data = await state.get_data()
+            await state.update_data(messageList=[])
+            msg_list = data['messageList']
+            msg_list.pop()
+            
+            for i in range(len(msg_list)):
+                await msg_list[i].delete()
+
+            await call.message.edit_text(
+                text=msg.start_message, 
+                reply_markup= await user_home_inline_button()
+            )
+            await state.set_state(FSMSteps.USER_INIT_STATE)
+
+        except Exception as e:
+            logging.exception(e)
+            await call.message.edit_text(
+                text=msg.start_message, 
+                reply_markup= await user_home_inline_button()
+            )
+            await state.set_state(FSMSteps.USER_INIT_STATE)
+
+    else:
+        await call.message.edit_text(
+            text=msg.start_message, 
+            reply_markup= await user_home_inline_button()
+        )
+        await state.set_state(FSMSteps.USER_INIT_STATE)
+
+
+async def get_help(
+        call: CallbackQuery,
+        state: FSMContext,
+        callback_data: HomeData
+):
+    ''' Show information about rules, for correctly using the bot 
+    '''
+    await call.message.edit_text(
+        text=msg.start_help_message,
+        reply_markup= await home_kb.user_back_home_inline_button()
     )
 
 
-async def work_time(message: Message):
-    '''Handler ansver on command "/work_time"
+async def work_time(
+        call: CallbackQuery,
+        state: FSMContext,
+        callback_data: HomeData
+):
+    ''' Show information about work time
     '''
-    await bot.send_message(
-        message.from_user.id,
-        text=message.from_user.id  # Now it send userId
+    await call.message.edit_text(
+        text=msg.start_work_mode_info,
+        reply_markup= await home_kb.user_back_home_inline_button()
     )
+
+
+async def del_not_handled_message(message: Message):
+
+    bill = message.text
+    await message.delete()
+    del_msg = await bot.send_message(
+        message.from_user.id,
+        text = f'неизвестная команда {bill}')
+    await asyncio.sleep(3)
+    try:
+        await del_msg.delete()
+    except:
+        pass
 
 
 async def command_cancel(message: Message, state: FSMContext):
@@ -103,12 +223,64 @@ async def msg_json(message: Message, state: FSMContext):
     # )
     # print(json.dumps(res.dict(), default=str))
     await message.delete()
-    
+        
 
-async def file_info(message: Message, state: FSMContext):
 
-    data = await state.get_data()
-    await bot.send_document('151436997', document= data['fileId'])
+async def register_handlers_home():
+    '''Registry handlers there.
+    '''
+    dp.message.register(
+        command_start,
+        Command(commands=['start'],),
+    )
+    dp.message.register(
+        command_staff,
+        Command(commands=['staff'])
+    )
+    dp.message.register(
+        command_cancel,
+        F.text == 'Отмена'
+    )
+    dp.message.register(
+        del_not_handled_message,
+    )
+
+    # dev func
+    dp.message.register(msg_json, F.document)
+    # dp.message.register(file_info, F.content_type.in_({'photo', 'document'}))
+    # dp.message.register(file_info, F.text == 'get file')
+
+
+async def register_callback_handlers_home():
+    '''
+    '''
+    dp.callback_query.register(
+        user_main_menu,
+        HomeData.filter((F.action == 'home') | (F.action == 'cancel')),
+    )
+    dp.callback_query.register(
+        get_help,
+        HomeData.filter(F.action == 'info'),
+    )
+    dp.callback_query.register(
+        work_time,
+        HomeData.filter(F.action == 'time'),
+    )
+
+
+
+
+
+
+
+
+
+
+
+# async def file_info(message: Message, state: FSMContext):
+
+#     data = await state.get_data()
+#     await bot.send_document('151436997', document= data['fileId'])
     # if message.document:
     #     json_str = json.dumps(message.dict(), default=str)
     #     print(json_str)
@@ -133,42 +305,5 @@ async def file_info(message: Message, state: FSMContext):
     #     await message.answer(text='doc')
     #     file = await bot.get_file(message.document.file_id)
     #     await bot.download_file(file.file_path, f'{dir}/{message.document.file_name}')
-
-
-
-    
-
-
-async def register_handlers_main():
-    '''Registry handlers there.
-    '''
-    dp.message.register(
-        command_start,
-        Command(commands=['start'])
-    )
-    dp.message.register(
-        command_staff,
-        Command(commands=['staff'])
-    )
-    dp.message.register(
-        command_help,
-        Command(commands=['help']),
-    )
-    dp.message.register(
-        work_time,
-        Command(commands=['work_time']),
-    )
-    dp.message.register(
-        command_cancel,
-        F.text == 'Отмена'
-    )
-
-                        
-    # dev func
-    dp.message.register(msg_json, F.document)
-    # dp.message.register(file_info, F.content_type.in_({'photo', 'document'}))
-    dp.message.register(file_info, F.text == 'get file')
-
-    
 
 

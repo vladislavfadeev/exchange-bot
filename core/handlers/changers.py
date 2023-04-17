@@ -4,6 +4,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types.callback_query import CallbackQuery
 from aiogram.types import Message
 from aiogram import F
+from core.handlers import user
 from create_bot import bot, dp
 from core.middlwares.routes import r    # Dataclass whith all api routes
 from core.utils import msg_maker, msg_var
@@ -32,10 +33,11 @@ async def accept_or_decline_user_transfer(
 
     if callback_data.action == 'accept':
 
-        await bot.send_message(
+        tmpMessage = await bot.send_message(
             transfer['user'],
             text= await msg_maker.accept_user_transfer2()
         )
+        await state.update_data(tmpMessage = tmpMessage)
         await bot.send_message(
             call.from_user.id,
             text= await msg_maker.accept_changer_transfer(transfer),
@@ -75,6 +77,8 @@ async def get_changer_proof(message: Message, state: FSMContext):
     transferId = allData['transfer']['id']
     userId = allData['transfer']['user']
     buyAmount = allData['transfer']['buyAmount']
+    tmpMessage = allData['tmpMessage']
+    await message.delete()
 
 
     if message.photo:
@@ -96,10 +100,12 @@ async def get_changer_proof(message: Message, state: FSMContext):
     response = await SimpleAPI.patch(
         r.changerRoutes.transactions,
         transferId,
-        data=data)
+        data=data
+    )
 
     if proofType == 'photo':
 
+        await tmpMessage.delete()
         await bot.send_photo(
             userId,
             photo = fileId,

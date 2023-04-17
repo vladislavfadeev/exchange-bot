@@ -1,12 +1,16 @@
+import asyncio
 from datetime import datetime
+import logging
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.fsm.context import FSMContext
 from aiogram.types.callback_query import CallbackQuery
 from aiogram.types import Message
 from aiogram import F
-from core.middlwares.settigns import appSettings
+from core.middlwares.settigns import MainMSG
+from core.keyboards import admin_kb, home_kb
+from core.middlwares.settigns import appSettings, mainMsg
 from core.keyboards.home_kb import user_home_button
-from create_bot import bot, dp
+from create_bot import bot, dp, scheduler
 from core.middlwares.routes import r    # Dataclass whith all api routes
 from core.utils import msg_maker, msg_var
 from core.api_actions.bot_api import SimpleAPI
@@ -18,6 +22,7 @@ from core.keyboards.callbackdata import (
     AmountData,
     ChangerProofActions,
     CurrencyData,
+    HomeData,
     OfferData,
     SetBuyBankData,
     SetSellBankData,
@@ -29,31 +34,47 @@ from core.middlwares.exceptions import (
 
 
 
-async def start_change(message: Message, state: FSMContext):
+
+async def start_change(
+        call: CallbackQuery,
+        state: FSMContext,
+        callback_data: HomeData
+):
     '''Handler is start user change currency process.
     React on "Обменять валюту" in "FSMSteps.INIT_STATE"
-    '''    
-    await message.answer(
-        text=msg.set_sell_currency,
-        reply_markup= user_kb.user_cancel_button()
-    )
-    await bot.send_message(
-        message.from_user.id,
-        text=msg.currency_choice_1, 
-        reply_markup= await user_kb.set_sell_currency_button()
-    )
-    await state.set_state(FSMSteps.INIT_CHANGE_STATE)
+    ''' 
+    try:
+        data = await state.get_data()
+        await state.update_data(messageList=[])
+        msg_list = data['messageList']
+        msg_list.pop()
+
+        for i in range(len(msg_list)):
+            await msg_list[i].delete()
+        
+        await call.message.edit_text(
+            text=msg.currency_choice_1,
+            reply_markup=await user_kb.set_sell_currency_button()
+        )
+    except Exception as e:
+        logging.exception(e)
+        await call.message.edit_text(
+            text=msg.currency_choice_1, 
+            reply_markup= await user_kb.set_sell_currency_button()
+        )
+    # await state.set_state(FSMSteps.INIT_CHANGE_STATE)
+
 
 
 async def show_offer(
         call: CallbackQuery, 
         state: FSMContext,
         callback_data: CurrencyData
-    ):
+):
     '''Show all available offers for the selected currency
     '''
-    if callback_data.isReturned:
-        await state.set_state(FSMSteps.INIT_CHANGE_STATE)
+    # if callback_data.isReturned:
+        # await state.set_state(FSMSteps.INIT_CHANGE_STATE)
 
     params = {
         'currency': callback_data.name,
@@ -64,26 +85,50 @@ async def show_offer(
         r.userRoutes.offer,
         params
     )
-    await state.update_data(offerList = offers.json())
-    messages = await msg_maker.offer_list_msg_maker(offers.json())
+    if len(offers.json()):
 
-    for i in range(len(messages)):
+        await state.update_data(offerList = offers.json())
+        messages = await msg_maker.offer_list_msg_maker(offers.json())
 
-        value = offers.json()[i]
-        builder = InlineKeyboardBuilder()
-        builder.button(
-            text=f'🔥 Обменять {value["currency"]} тут 🔥',
-            callback_data=OfferData(
-                id=value['id'],
-                isReturned=False
+        await call.message.delete()
+        
+        messageList = []
+        counter = 0
+        for i in range(len(messages)):
+
+            counter += 1
+            value = offers.json()[i]
+            builder = InlineKeyboardBuilder()
+            builder.button(
+                text=f'🔥 Обменять {value["currency"]} тут 🔥',
+                callback_data=OfferData(
+                    id=value['id'],
+                    isReturned=False
+                )
             )
-        )
+            if counter == len(messages):
+                builder.button(
+                    text='↩ Вернуться на главную',
+                    callback_data=HomeData(
+                        action='cancel'
+                    )
+                )
+                builder.adjust(1)
 
-        await bot.send_message(
-            call.from_user.id,
-            text=messages[i],
-            reply_markup=builder.as_markup()
-        )
+            self_msg = await bot.send_message(
+                call.from_user.id,
+                text=messages[i],
+                reply_markup=builder.as_markup()
+            )
+            messageList.append(self_msg)
+        await state.update_data(messageList = messageList)
+
+    else:
+        await call.message.edit_text(
+            text=msg.zero_offer, 
+            reply_markup= await user_kb.user_cancel_buttons_offerslist()
+    )
+
 
 
 async def set_amount(
@@ -98,40 +143,60 @@ async def set_amount(
         data = await state.get_data()
         offerData = data['selectedOffer']
         
-        await bot.send_message(
-            call.from_user.id,
-            text = await msg_maker.set_amount_returned_msg_maker(offerData)
+        await call.message.edit_text(
+            text = await msg_maker.set_amount_returned_msg_maker(offerData),
+            reply_markup= await home_kb.user_back_home_inline_button()
         )
 
     else:
+        
+        data = await state.get_data()
+        await state.update_data(messageList=[])
 
-        offerData = await state.get_data()
-
-        for i in offerData['offerList']:
+        for i in data['offerList']:
             if i['id'] == callback_data.id:
             
                 await state.update_data(selectedOffer = i)
                 await state.update_data(offerList = {})
                 offerData = i
+        
+        try:
+            msg_list = data['messageList']
 
-        await bot.send_message(
-            call.from_user.id,
-            text = await msg_maker.set_amount_msg_maker(offerData)
-        )
+            for i in range(len(msg_list)):
+                await msg_list[i].delete()
+            
+            lastMsg = await bot.send_message(
+                call.from_user.id,
+                text = await msg_maker.set_amount_msg_maker(offerData),
+                reply_markup= await home_kb.user_back_home_inline_button()
+            )
+        except Exception as e:
+            logging.exception(e)
+            lastMsg = await bot.send_message(
+                call.from_user.id,
+                text = await msg_maker.set_amount_msg_maker(offerData),
+                reply_markup= await home_kb.user_back_home_inline_button()
+            )
+        await state.update_data(mainMsg = lastMsg)
 
-        await state.set_state(FSMSteps.SET_AMOUNT_STATE)
+    await state.set_state(FSMSteps.SET_AMOUNT_STATE)
     
+
 
 async def set_amount_check(message: Message, state: FSMContext):
     '''
     '''
     data = await state.get_data()
     offerData = data['selectedOffer']
+    mainMsg = data['mainMsg']
+    await message.delete()
     
     try:
 
-        amount = float(message.text.replace(',', '.'))
-
+        value = message.text
+        amount = float(value.replace(',', '.'))
+        print(amount)
         if offerData['minAmount'] != None:
             if amount < offerData['minAmount']:
                 raise MinAmountError()
@@ -140,24 +205,30 @@ async def set_amount_check(message: Message, state: FSMContext):
             if amount > offerData['maxAmount']:
                 raise MaxAmountError()
             
-    except ValueError:
-        await message.answer(text=msg_var.type_error_msg)
+    except ValueError as e:
+        logging.error(e)
+        await mainMsg.edit_text(
+            text=msg_var.type_error_msg,
+            reply_markup = await user_kb.user_return_to_offer_choice_button(offerData)
+        )
 
-    except MinAmountError:
-        await message.answer(
+    except MinAmountError as e:
+        logging.error(e)
+        await mainMsg.edit_text(
             text = await msg_maker.min_amount_error_msg_maker(offerData),
             reply_markup = await user_kb.user_return_to_offer_choice_button(offerData)
         )
 
-    except MaxAmountError:
-        await message.answer(
+    except MaxAmountError as e:
+        logging.error(e)
+        await mainMsg.edit_text(
             text = await msg_maker.max_amount_error_msg_maker(offerData),
             reply_markup = await user_kb.user_return_to_offer_choice_button(offerData)
         )
 
     else:
         await state.update_data(sellAmount = amount)
-        await message.answer(
+        await mainMsg.edit_text(
             text= await msg_maker.show_user_buy_amount(
                 amount,
                 offerData['rate'],
@@ -165,6 +236,8 @@ async def set_amount_check(message: Message, state: FSMContext):
             ),
             reply_markup= await user_kb.set_amount_check_inlkb()
         )
+        await state.set_state(None)
+
 
 
 async def choose_sell_bank(
@@ -174,7 +247,7 @@ async def choose_sell_bank(
     ):
     '''
     '''
-    await state.set_state(FSMSteps.SET_SELL_BANK)
+    # await state.set_state(FSMSteps.SET_SELL_BANK)
     data = await state.get_data()
     offerData = data['selectedOffer']
 
@@ -189,12 +262,12 @@ async def choose_sell_bank(
         params
     )
 
-    await bot.send_message(
-        call.from_user.id,
+    await call.message.edit_text(
         text= await msg_maker.set_sell_bank(offerData['currency']),
         reply_markup= await user_kb.set_sell_bank(banks)
     )
     
+
 
 async def choose_buy_bank(
         call: CallbackQuery,
@@ -214,8 +287,7 @@ async def choose_buy_bank(
     if len(banks.json()) and not callback_data.setNew:
 
         await state.update_data(sellBank = callback_data.id)        
-        await bot.send_message(
-            call.from_user.id,
+        await call.message.edit_text(
             text = await msg_maker.choose_user_bank_from_db(),
             reply_markup= await user_kb.choose_user_bank_from_db(banks)
         )
@@ -226,11 +298,11 @@ async def choose_buy_bank(
 
         banksName = await SimpleAPI.get(r.userRoutes.banksNameList)
 
-        await bot.send_message(
-            call.from_user.id,
+        await call.message.edit_text(
             text='Выберите банк из списка:',
             reply_markup= await user_kb.choose_bank_name_from_list(banksName)
         )
+
 
 
 async def choose_new_buy_bank_next(
@@ -242,40 +314,61 @@ async def choose_new_buy_bank_next(
     '''
     await state.update_data(buyBank = callback_data.bankName)
     await state.set_state(FSMSteps.SET_BUY_BANK_ACCOUNT)
-    await bot.send_message(
-        call.from_user.id,
+    await call.message.edit_text(
         text= await msg_maker.set_buy_bank_account(
             callback_data.bankName
-        )
+        ),
+        reply_markup= await home_kb.user_back_home_inline_button()
     )
+
 
 
 async def apply_new_buy_bank(message: Message, state: FSMContext):
     '''
     '''
-    account = message.text
+    await message.delete()
     allData = await state.get_data()
     bankName = allData['buyBank']
     changerId = allData['selectedOffer']['owner']
+    mainMsg = allData['mainMsg']
     
-    postData = {
-        "name": bankName,
-        "bankAccount": account,
-        "owner": message.from_user.id,
-        "currency": "3",
-        "isActive": True        
-    }
+    try:
+        account = int(message.text)
 
-    account = await SimpleAPI.post(r.userRoutes.userBanks, postData)
-    await bot.send_message(
-        changerId,
-        text= await msg_maker.changer_inform(changerId, allData)
-    )
-    await message.answer( 
-        text= await msg_maker.complete_set_new_bank(allData)
-    )
-    await state.update_data(userAccount = account.json())
-    await state.set_state(FSMSteps.GET_USER_PROOF)
+        postData = {
+            "name": bankName,
+            "bankAccount": account,
+            "owner": message.from_user.id,
+            "currency": "3",
+            "isActive": True        
+        }
+
+        account = await SimpleAPI.post(r.userRoutes.userBanks, postData)
+        await bot.send_message(
+            changerId,
+            text= await msg_maker.changer_inform(changerId, allData)
+        )
+        await mainMsg.edit_text( 
+            text= await msg_maker.complete_set_new_bank(allData),
+            reply_markup= await home_kb.user_back_home_inline_button()
+        )
+        await state.update_data(userAccount = account.json())
+        await state.set_state(FSMSteps.GET_USER_PROOF)
+
+    except ValueError as e:
+        logging.exception(e)
+        await mainMsg.edit_text(
+            text='only digits without any symbol, try again',
+            reply_markup = await user_kb.get_trouble_staff_contact()
+        )
+
+    except Exception as e:
+        logging.exception(e)
+        await mainMsg.edit_text(
+            text='data type is not provided, try again',
+            reply_markup = await user_kb.get_trouble_staff_contact()
+        )
+
 
 
 async def use_old_buy_bank(
@@ -292,9 +385,9 @@ async def use_old_buy_bank(
     userAccount = await SimpleAPI.getDetails(r.userRoutes.userBanks, accountId)
     await state.update_data(userAccount = userAccount.json())
 
-    await bot.send_message(
-        call.from_user.id,
-        text= await msg_maker.complete_set_new_bank(allData)
+    await call.message.edit_text(
+        text= await msg_maker.complete_set_new_bank(allData),
+        reply_markup= await home_kb.user_back_home_inline_button()
     )
 
     await bot.send_message(
@@ -304,11 +397,13 @@ async def use_old_buy_bank(
     await state.set_state(FSMSteps.GET_USER_PROOF)
 
 
+
 async def get_user_proof(message: Message, state: FSMContext):
     '''
     '''
 
     allData = await state.get_data()
+    mainMsg = allData['mainMsg']
     changerId = allData['selectedOffer']['owner']
     offerId = allData['selectedOffer']['id']
     changerBank = allData['sellBank']
@@ -319,58 +414,71 @@ async def get_user_proof(message: Message, state: FSMContext):
     buyAmount = sellAmount * rate
     accountId = message.from_user.id
 
-    if message.photo:
+    try:
+        if message.photo:
 
-        fileId = message.photo[-1].file_id
-        proofType = 'photo'
+            fileId = message.photo[-1].file_id
+            proofType = 'photo'
 
-    elif message.document:
+        elif message.document:
 
-        fileId = message.document.file_id
-        proofType = 'document'
+            fileId = message.document.file_id
+            proofType = 'document'
 
-    data = {
-        'changer': changerId,
-        'offer': offerId,
-        'user': accountId,
-        'changerBank': changerBank,
-        'userBank': userBank,
-        'sellCurrency': sellCurrency,
-        'buyCurrency': 'MNT',
-        'sellAmount': sellAmount,
-        'buyAmount': buyAmount,
-        'rate': rate,
-        'userSendMoneyDate': datetime.now(),
-        'userProofType': proofType,
-        'userProof': fileId,
-    }
+        data = {
+            'changer': changerId,
+            'offer': offerId,
+            'user': accountId,
+            'changerBank': changerBank,
+            'userBank': userBank,
+            'sellCurrency': sellCurrency,
+            'buyCurrency': 'MNT',
+            'sellAmount': sellAmount,
+            'buyAmount': buyAmount,
+            'rate': rate,
+            'userSendMoneyDate': datetime.now(),
+            'userProofType': proofType,
+            'userProof': fileId,
+        }
 
-    response = await SimpleAPI.post(r.userRoutes.transactions, data=data)
+        response = await SimpleAPI.post(r.userRoutes.transactions, data=data)
 
 
-    if proofType == 'photo':
+        if proofType == 'photo':
 
-        await bot.send_photo(
-            changerId,
-            photo = fileId,
-            caption= await msg_maker.accept_user_transfer(),
-            reply_markup= await changer_kb.accept_user_transfer(response.json()['id'])
+            await bot.send_photo(
+                changerId,
+                photo = fileId,
+                caption= await msg_maker.accept_user_transfer(),
+                reply_markup= await changer_kb.accept_user_transfer(response.json()['id'])
+            )
+
+        if proofType == 'document':
+
+            await bot.send_document(
+                changerId, 
+                document= fileId,
+                caption= await msg_maker.accept_user_transfer(),
+                reply_markup= await changer_kb.accept_user_transfer(response.json()['id'])
+            )
+
+        await message.delete()
+        await mainMsg.edit_text(
+            text= await msg_maker.user_inform(buyAmount),
+            reply_markup = await user_kb.get_trouble_staff_contact()
+        )
+        await state.set_state(FSMSteps.WAIT_CHANGER_PROOF)
+
+    except Exception as e:
+
+        logging.exception(e)
+
+        await message.delete()
+        await mainMsg.edit_text(
+            text='data type is not provided, try again',
+            reply_markup = await user_kb.get_trouble_staff_contact()
         )
 
-    if proofType == 'document':
-
-        await bot.send_document(
-            changerId, 
-            document= fileId,
-            caption= await msg_maker.accept_user_transfer(),
-            reply_markup= await changer_kb.accept_user_transfer(response.json()['id'])
-        )
-
-    await bot.send_message(
-        message.from_user.id,
-        text= await msg_maker.user_inform(buyAmount)
-        )
-    await state.set_state(FSMSteps.WAIT_CHANGER_PROOF)
 
 
 async def accept_or_decline_changer_transfer(
@@ -386,18 +494,28 @@ async def accept_or_decline_changer_transfer(
     )
     transfer = response.json()
     await state.update_data(transfer = transfer)
+    data = await state.get_data()
+    mainMsg = data['mainMsg']
 
     if callback_data.action == 'accept':
 
+        await call.message.delete()
         await bot.send_message(
             transfer['changer'],
             text= await msg_maker.accept_changer_transfer2(transfer['id'])
         )
-        await bot.send_message(
-            call.from_user.id,
-            text= await msg_maker.accept_changer_transfer3(transfer['id']),
-            reply_markup=user_home_button()
+        await mainMsg.edit_text(
+            text=msg.start_message, 
+            reply_markup= await home_kb.user_home_inline_button()
         )
+        del_msg = await call.message.answer(
+            text= await msg_maker.accept_changer_transfer3(transfer['id']),
+        )
+        await asyncio.sleep(3)
+        try:
+            await del_msg.delete()
+        except:
+            pass
 
         patchData = {
             'userAcceptDate': datetime.now(),
@@ -408,21 +526,25 @@ async def accept_or_decline_changer_transfer(
             transfer['id'],
             data=patchData
         )
-        await state.set_state(FSMSteps.USER_INIT_STATE)
+        await state.set_state(None)
 
     elif callback_data.action == 'decline':
         
-        await bot.send_message(
+        del_msg = await bot.send_message(
             transfer['changer'],
-            text= await msg_maker.decline_changer_transfer()
+            text= await msg_maker.decline_changer_transfer(transfer['id'])
         )
-        await bot.send_message(
+        del_msg2 = await bot.send_message(
             call.from_user.id,
-            text=msg_maker.decline_changer_transfer2(transfer['id'])
+            text= await msg_maker.decline_changer_transfer2(transfer['id'])
         )
         await bot.send_message(
             appSettings.botSetting.troubleStaffId,
-            text='Пользователь не принял перевод обменника'
+            text=f'Пользователь не принял перевод обменника, Заявка {transfer["id"]}',
+            reply_markup= await admin_kb.get_claim_contacts_toadmin(
+                call.from_user.id,
+                transfer['changer']
+            )
         )
         if transfer['userProofType'] == 'photo':
             await bot.send_photo(
@@ -450,6 +572,18 @@ async def accept_or_decline_changer_transfer(
                 caption= f'Подтверждение обменника. Заявка {transfer["id"]}'
             )
 
+        await asyncio.sleep(10)
+        try:
+            await call.message.delete()
+            await del_msg.delete()
+            await del_msg2.delete()
+            await mainMsg.edit_text(
+                text=msg.start_message, 
+                reply_markup= await home_kb.user_home_inline_button()
+            )
+        except:
+            pass
+
     elif callback_data.action == 'admin':
         await bot.send_message(
             call.from_user.id,
@@ -472,17 +606,14 @@ async def register_message_handlers_user():
     )
     dp.message.register(
         set_amount_check,
-        F.text,
         FSMSteps.SET_AMOUNT_STATE
     )
     dp.message.register(
         choose_sell_bank,
-        F.text,
         FSMSteps.SET_SELL_BANK
     )
     dp.message.register(
         apply_new_buy_bank,
-        F.text,
         FSMSteps.SET_BUY_BANK_ACCOUNT
     )
     dp.message.register(
@@ -495,6 +626,12 @@ async def register_message_handlers_user():
 async def register_callback_handler_user():
     '''Register callback_querry handlers there.
     '''
+    dp.callback_query.register(
+        start_change,
+        HomeData.filter(F.action == 'change'),
+        # FSMSteps.USER_INIT_STATE
+    )
+
     dp.callback_query.register(
         show_offer,
         CurrencyData.filter()
