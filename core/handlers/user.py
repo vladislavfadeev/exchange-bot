@@ -6,9 +6,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types.callback_query import CallbackQuery
 from aiogram.types import Message
 from aiogram import F
-from core.middlwares.settigns import MainMSG
 from core.keyboards import admin_kb, home_kb
-from core.middlwares.settigns import appSettings, mainMsg
+from core.middlwares.settigns import appSettings
 from core.keyboards.home_kb import user_home_button
 from create_bot import bot, dp, scheduler
 from core.middlwares.routes import r    # Dataclass whith all api routes
@@ -126,8 +125,8 @@ async def show_offer(
     else:
         await call.message.edit_text(
             text=msg.zero_offer, 
-            reply_markup= await user_kb.user_cancel_buttons_offerslist()
-    )
+            reply_markup= await user_kb.user_cancel_buttons_offerslist()           
+        )
 
 
 
@@ -444,23 +443,23 @@ async def get_user_proof(message: Message, state: FSMContext):
         response = await SimpleAPI.post(r.userRoutes.transactions, data=data)
 
 
-        if proofType == 'photo':
+        # if proofType == 'photo':
 
-            await bot.send_photo(
-                changerId,
-                photo = fileId,
-                caption= await msg_maker.accept_user_transfer(),
-                reply_markup= await changer_kb.accept_user_transfer(response.json()['id'])
-            )
+        #     await bot.send_photo(
+        #         changerId,
+        #         photo = fileId,
+        #         caption= await msg_maker.accept_user_transfer(),
+        #         reply_markup= await changer_kb.accept_user_transfer(response.json()['id'])
+        #     )
 
-        if proofType == 'document':
+        # if proofType == 'document':
 
-            await bot.send_document(
-                changerId, 
-                document= fileId,
-                caption= await msg_maker.accept_user_transfer(),
-                reply_markup= await changer_kb.accept_user_transfer(response.json()['id'])
-            )
+        #     await bot.send_document(
+        #         changerId, 
+        #         document= fileId,
+        #         caption= await msg_maker.accept_user_transfer(),
+        #         reply_markup= await changer_kb.accept_user_transfer(response.json()['id'])
+        #     )
 
         await message.delete()
         await mainMsg.edit_text(

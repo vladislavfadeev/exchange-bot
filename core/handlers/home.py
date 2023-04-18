@@ -4,33 +4,21 @@ from aiogram.fsm.context import FSMContext
 from aiogram.filters import Command
 from aiogram.types import Message
 from aiogram.types.callback_query import CallbackQuery
-from core.keyboards import home_kb
+from core.keyboards import changer_kb, home_kb
 from core.keyboards.callbackdata import HomeData
-from core.middlwares.settigns import MainMSG
+from core.utils.notifier import changer_notifier, get_new_transfers
 from create_bot import dp, bot, scheduler
 from aiogram import F
 from core.keyboards.home_kb import user_home_button, user_home_inline_button
 from core.api_actions.bot_api import SimpleAPI
-from core.utils import msg_var as msg
+from core.utils import msg_maker, msg_var as msg
 from core.utils.bot_fsm import FSMSteps
 from core.middlwares.routes import r    # Dataclass whith all api routes
 from datetime import date
 import json
 import os
 
-
-
-async def some_func(state: FSMContext):
-
-    data = await state.get_data()
-    main_msg = data['mainMsg']
-    await main_msg.delete()
-    new_msg = await bot.send_message(
-        main_msg.chat.id,
-        text=msg.start_message, 
-        reply_markup= await user_home_inline_button()
-    )
-    await state.update_data(mainMsg = new_msg)
+# from core.utils.notifier import 
 
 
 
@@ -81,8 +69,8 @@ async def command_start(message: Message, state: FSMContext):
                 "isActive": True
             }
         )
+        
         await state.update_data(mainMsg = mainMessage)
-        scheduler.add_job(some_func, 'interval', seconds=10, args=(state, ))
     await state.set_state(FSMSteps.USER_INIT_STATE)
 
 
@@ -93,6 +81,10 @@ async def command_staff(message: Message, state: FSMContext):
         r.changerRoutes.changerProfile,
         message.from_user.id
     )
+    data = await state.get_data()
+    mainMsg = data.get('mainMsg')
+
+
     if response.status_code == 404:
         info_msg = await message.answer(
             text=msg.staff_404
@@ -105,17 +97,33 @@ async def command_staff(message: Message, state: FSMContext):
             pass
 
     elif response.status_code == 200:
-        await message.answer(
-            text= msg.staff_hello
-        )
-        
-        await message.delete()
-        await state.set_state(FSMSteps.CHANGER_INIT_STATE)
+        transfers = data.get('user_transfers')
 
-    else:
-        await message.answer(
-            text= msg.staff_else
+        await message.delete()
+        await mainMsg.edit_text(
+            text = await msg_maker.staff_welcome(
+                # response.json(),
+                transfers
+            ),
+            reply_markup = await changer_kb.staff_welcome_button(
+                transfers
+            )
         )
+        await state.set_state(FSMSteps.STUFF_INIT_STATE)
+        scheduler.add_job(
+            get_new_transfers,
+            'interval',
+            minutes=1,
+            args=(message.from_user.id, state)
+        )
+        scheduler.add_job(
+            changer_notifier,
+            'interval',
+            minutes=1.5,
+            args=(state, )
+        )
+
+        
 
 
 async def user_main_menu(

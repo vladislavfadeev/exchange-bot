@@ -45,23 +45,3 @@ def get_settings(path: str):
 
 appSettings = get_settings('.env')
 
-
-
-class MainMSG():
-
-    def __init__(self, msg = None):
-        self._msg = msg
-
-    @property
-    def msg(self):
-        return self._msg
-    
-    @msg.setter
-    def msg(self, msg):
-        if isinstance(msg, Message):
-            self._msg = msg
-        else:
-            self._msg = None
-            # raise ValueError('main_msg can only be an instance of a class Message')
-
-mainMsg = MainMSG()

@@ -44,3 +44,13 @@ class ChangerProofActions(CallbackData, prefix='cpa'):
 
 class TestData(CallbackData, prefix='test'):
     url: str
+
+
+class StuffOfficeData(CallbackData, prefix='office'):
+    action: str
+
+
+class StuffEditData(CallbackData, prefix='stuff_edit'):
+    id: int
+    action: str
+    value: str

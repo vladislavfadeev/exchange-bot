@@ -2,6 +2,7 @@ from core.middlwares.routes import r    # Dataclass whith all api routes
 from core.api_actions.bot_api import SimpleAPI
 
 
+
 async def offer_list_msg_maker(offers):
     
     banks = ''
@@ -284,4 +285,37 @@ async def decline_changer_transfer2(transferId):
                 \nо внештатной ситауции и во всем разбирается.\
                 \nВ ближайшее время он с вами свяжется'
     
+    return message
+
+
+
+async def staff_welcome(transfers):
+
+    # stuff_name = f'{response["name"]} {response["lastName"]}'
+    value = len(transfers) if transfers else None
+    alert = f'<b>У вас есть неотвеченный перевод!</b>\n\n' if value else '💰'
+
+    message = (
+        f'{alert}'
+        f'💻 Личный кабинет.\n'
+        f'Приветствую вас!\n'
+        f'\n'
+    )
+
+    return message
+
+
+async def stuff_offer_menu():
+
+    message = (
+        'Вы вошли в меню просмотра и редактирования ваших предложений по обмену'
+    ) 
+    return message
+
+
+async def stuff_set_currency():
+
+    message = (
+        '💵 Выберите валюту, в которой будет размещено предложение 👇'
+    )
     return message
