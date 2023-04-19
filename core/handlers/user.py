@@ -61,7 +61,6 @@ async def start_change(
             text=msg.currency_choice_1, 
             reply_markup= await user_kb.set_sell_currency_button()
         )
-    # await state.set_state(FSMSteps.INIT_CHANGE_STATE)
 
 
 
@@ -72,12 +71,11 @@ async def show_offer(
 ):
     '''Show all available offers for the selected currency
     '''
-    # if callback_data.isReturned:
-        # await state.set_state(FSMSteps.INIT_CHANGE_STATE)
 
     params = {
         'currency': callback_data.name,
-        'isActive': True
+        'isActive': True,
+        'isDeleted': False
     }
     
     offers = await SimpleAPI.get(
@@ -195,7 +193,7 @@ async def set_amount_check(message: Message, state: FSMContext):
 
         value = message.text
         amount = float(value.replace(',', '.'))
-        print(amount)
+        
         if offerData['minAmount'] != None:
             if amount < offerData['minAmount']:
                 raise MinAmountError()

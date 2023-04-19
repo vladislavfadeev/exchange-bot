@@ -1,3 +1,4 @@
+from email import message
 from core.middlwares.routes import r    # Dataclass whith all api routes
 from core.api_actions.bot_api import SimpleAPI
 
@@ -319,3 +320,40 @@ async def stuff_set_currency():
         '💵 Выберите валюту, в которой будет размещено предложение 👇'
     )
     return message
+
+
+async def stuff_show_amount(rate, currency):
+
+    message = (
+        f'💰 Вы указали курс продажи для {currency}'
+        f'\n\n⚡ {rate} MNT ⚡\n\n'
+        f'⚠️ Подтверждаете?'
+    )
+    
+    return message
+
+
+async def stuff_create_new_offer_banks(currency, accounts = None):
+
+    message_mini = (
+        f'💰 Выберите счет(а), которые будут использоваться\n'
+        f'для перевода {currency}. Можно выбрать несколько,\n'
+        'просто нажимайте на соответствующие кнопки ниже 👇'
+    )
+
+    if accounts:
+        acc_input = ''
+
+        for account in accounts:
+            acc_input += f'\n⚡ {account["name"]}\n  {account["bankAccount"]}\n'
+
+        message = (
+            f'💰 Выберите счет(а), которые будут использоваться\n'
+            f'для перевода {currency}.\n'
+            f'{acc_input}'
+            '\nМожно выбрать несколько, просто\n'
+            'нажимайте на соответствующие кнопки ниже 👇'
+        )
+
+    return message if accounts else message_mini
+

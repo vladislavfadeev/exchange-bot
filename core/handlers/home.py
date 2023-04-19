@@ -34,30 +34,43 @@ async def command_start(message: Message, state: FSMContext):
                 chat_id= message.from_user.id,
                 message_id=data['mainMsg'].message_id
             )
-            mainMessage =  await bot.send_message(
-                message.from_user.id,
-                text=msg.start_message, 
-                reply_markup= await user_home_inline_button()
-            )
-            await state.update_data(mainMsg = mainMessage)
+            if data.get('isStuff'):
+
+                transfers = data.get('user_transfers')
+
+                mainMsg = await bot.send_message(
+                    message.from_user.id,
+                    text = await msg_maker.staff_welcome(transfers),
+                    reply_markup = await changer_kb.staff_welcome_button(
+                        transfers
+                    )
+                )
+                await state.set_state(FSMSteps.STUFF_INIT_STATE)
+
+            else:
+                mainMsg =  await bot.send_message(
+                    message.from_user.id,
+                    text=msg.start_message, 
+                    reply_markup= await user_home_inline_button()
+                )
+            await state.update_data(mainMsg = mainMsg)
             
         except Exception as e:
             logging.exception(e)
-            data = await state.get_data()
             await state.update_data(messageList=[])
-            msg_list = data['messageList']
+            msg_list = data.get('messageList')
 
             for i in range(len(msg_list)):
                 await msg_list[i].delete()
             
-            mainMessage =  await bot.send_message(
+            mainMsg =  await bot.send_message(
                 message.from_user.id,
                 text=msg.start_message,
                 reply_markup= await user_home_inline_button()
             )
-            await state.update_data(mainMsg = mainMessage)
+            await state.update_data(mainMsg = mainMsg)
     else:
-        mainMessage =  await bot.send_message(
+        mainMsg =  await bot.send_message(
             message.from_user.id,
             text=msg.start_message, 
             reply_markup= await user_home_inline_button()
@@ -70,13 +83,15 @@ async def command_start(message: Message, state: FSMContext):
             }
         )
         
-        await state.update_data(mainMsg = mainMessage)
+        await state.update_data(mainMsg = mainMsg)
     await state.set_state(FSMSteps.USER_INIT_STATE)
 
 
 async def command_staff(message: Message, state: FSMContext):
     '''Handler ansver on command "/staff"
     '''
+    data = await state.get_data()
+
     response = await SimpleAPI.getDetails(
         r.changerRoutes.changerProfile,
         message.from_user.id
@@ -84,47 +99,59 @@ async def command_staff(message: Message, state: FSMContext):
     data = await state.get_data()
     mainMsg = data.get('mainMsg')
 
+    if not data.get('isStuff'):
+        if response.status_code == 404:
+            info_msg = await message.answer(
+                text=msg.staff_404
+            )
+            await message.delete()
+            await asyncio.sleep(3)
+            try:
+                await info_msg.delete()
+            except:
+                pass
 
-    if response.status_code == 404:
-        info_msg = await message.answer(
-            text=msg.staff_404
-        )
+        elif response.status_code == 200:
+            transfers = data.get('user_transfers')
+
+            await message.delete()
+            await mainMsg.edit_text(
+                text = await msg_maker.staff_welcome(
+                    # response.json(),
+                    transfers
+                ),
+                reply_markup = await changer_kb.staff_welcome_button(
+                    transfers
+                )
+            )
+            await state.update_data(isStuff = 1)
+            await state.set_state(FSMSteps.STUFF_INIT_STATE)
+            
+            scheduler.add_job(
+                get_new_transfers,
+                'interval',
+                minutes=1,
+                args=(message.from_user.id, state)
+            )
+            scheduler.add_job(
+                changer_notifier,
+                'interval',
+                minutes=1.5,
+                args=(state, )
+            )
+    else:
         await message.delete()
+        del_msg = await bot.send_message(
+            message.from_user.id,
+            text = f'Вы уже вошли в систему как зарегистрированный пользователь'
+        )
         await asyncio.sleep(3)
         try:
-            await info_msg.delete()
+            await del_msg.delete()
         except:
             pass
 
-    elif response.status_code == 200:
-        transfers = data.get('user_transfers')
-
-        await message.delete()
-        await mainMsg.edit_text(
-            text = await msg_maker.staff_welcome(
-                # response.json(),
-                transfers
-            ),
-            reply_markup = await changer_kb.staff_welcome_button(
-                transfers
-            )
-        )
-        await state.set_state(FSMSteps.STUFF_INIT_STATE)
-        scheduler.add_job(
-            get_new_transfers,
-            'interval',
-            minutes=1,
-            args=(message.from_user.id, state)
-        )
-        scheduler.add_job(
-            changer_notifier,
-            'interval',
-            minutes=1.5,
-            args=(state, )
-        )
-
-        
-
+            
 
 async def user_main_menu(
         call: CallbackQuery,
@@ -133,36 +160,78 @@ async def user_main_menu(
 ):
     ''' Show "main" message
     '''
-    if callback_data.action == 'cancel':
-        try:
-            data = await state.get_data()
-            await state.update_data(messageList=[])
-            msg_list = data['messageList']
-            msg_list.pop()
-            
+    data = await state.get_data()
+    await state.update_data(messageList=[])
+    msg_list = data.get('messageList')
+
+    try:
+        
+        if len(msg_list):
             for i in range(len(msg_list)):
                 await msg_list[i].delete()
 
+        if data.get('isStuff'):
+
+            transfers = data.get('user_transfers')
+
+            if len(msg_list):
+                mainMsg = await bot.send_message(
+                    call.from_user.id,
+                    text = await msg_maker.staff_welcome(transfers),
+                    reply_markup = await changer_kb.staff_welcome_button(
+                        transfers
+                    )
+                )
+                await state.update_data(mainMsg = mainMsg)
+
+            else:
+                await call.message.edit_text(
+                    text = await msg_maker.staff_welcome(transfers),
+                    reply_markup = await changer_kb.staff_welcome_button(
+                        transfers
+                    )
+                )
+            
+            await state.set_state(FSMSteps.STUFF_INIT_STATE)
+        
+        else:
+            if len(msg_list):
+                mainMsg = await bot.send_message(
+                    call.from_user.id,
+                    text=msg.start_message, 
+                    reply_markup= await user_home_inline_button()
+                )
+                await state.update_data(mainMsg = mainMsg)
+
+            else:
+                await call.message.edit_text(
+                    text=msg.start_message, 
+                    reply_markup= await user_home_inline_button()
+                )
+
+            await state.set_state(FSMSteps.USER_INIT_STATE)
+        
+    except Exception as e:
+        logging.exception(e)
+        
+        if data.get('isStuff'):
+
+            transfers = data.get('user_transfers')
+
+            await call.message.edit_text(
+                text = await msg_maker.staff_welcome(transfers),
+                reply_markup = await changer_kb.staff_welcome_button(
+                    transfers
+                )
+            )
+            await state.set_state(FSMSteps.STUFF_INIT_STATE)
+
+        else:
             await call.message.edit_text(
                 text=msg.start_message, 
                 reply_markup= await user_home_inline_button()
             )
             await state.set_state(FSMSteps.USER_INIT_STATE)
-
-        except Exception as e:
-            logging.exception(e)
-            await call.message.edit_text(
-                text=msg.start_message, 
-                reply_markup= await user_home_inline_button()
-            )
-            await state.set_state(FSMSteps.USER_INIT_STATE)
-
-    else:
-        await call.message.edit_text(
-            text=msg.start_message, 
-            reply_markup= await user_home_inline_button()
-        )
-        await state.set_state(FSMSteps.USER_INIT_STATE)
 
 
 async def get_help(
@@ -264,7 +333,7 @@ async def register_callback_handlers_home():
     '''
     dp.callback_query.register(
         user_main_menu,
-        HomeData.filter((F.action == 'home') | (F.action == 'cancel')),
+        HomeData.filter(F.action == 'cancel'),
     )
     dp.callback_query.register(
         get_help,

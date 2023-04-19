@@ -54,3 +54,5 @@ class StuffEditData(CallbackData, prefix='stuff_edit'):
     id: int
     action: str
     value: str
+
+    

@@ -14,5 +14,6 @@ class FSMSteps(StatesGroup):
     GET_CHANGER_PROOF = State()
     STUFF_INIT_STATE = State()
     STUFF_OFFERS = State()
-
+    STUFF_OFFERS_RATE = State()
+    
 
