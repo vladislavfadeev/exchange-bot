@@ -7,3 +7,7 @@ class MinAmountError(Exception):
 
 class MaxAmountError(Exception):
     pass
+
+
+class MaxLenError(Exception):
+    pass

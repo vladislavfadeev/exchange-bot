@@ -6,7 +6,7 @@ from core.api_actions.bot_api import SimpleAPI
 
 async def offer_list_msg_maker(offers):
     
-    banks = ''
+
     messages = []
 
     for offer in offers:
@@ -322,7 +322,7 @@ async def stuff_set_currency():
     return message
 
 
-async def stuff_show_amount(rate, currency):
+async def stuff_show_rate(rate, currency):
 
     message = (
         f'💰 Вы указали курс продажи для {currency}'
@@ -357,3 +357,90 @@ async def stuff_create_new_offer_banks(currency, accounts = None):
 
     return message if accounts else message_mini
 
+
+async def staff_set_min_amount(currency):
+
+    message = (
+        f'Укажите минимальную сумму {currency}\n'
+        'для данного предложения'
+    )
+
+    return message
+
+
+async def stuff_show_min_amount(amount, currency):
+
+    message = (
+        f'💰 Вы указали минимальную сумму\n'
+        'для данного предложения'
+        f'\n\n⚡ {amount} {currency} ⚡\n\n'
+        f'⚠️ Подтверждаете?'
+    )
+    
+    return message
+
+
+async def stuff_set_max_amount(currency):
+
+    message = (
+        f'Укажите максимальную сумму {currency}\n'
+        'для данного предложения'
+    )
+
+    return message
+
+
+async def stuff_show_max_amount(amount, currency):
+
+    message = (
+        f'💰 Вы указали максимальную сумму\n'
+        'для данного предложения'
+        f'\n\n⚡ {amount} {currency} ⚡\n\n'
+        f'⚠️ Подтверждаете?'
+    )
+    
+    return message
+
+
+async def staff_max_len_message(var):
+
+    message = (
+        f'Введеный вами комментарий имеет\n'
+        f'длину более 50 символов. А именно {var}.\n'
+        f'Сократите количество символов.\n'
+    )
+
+    return message
+
+
+async def staff_show_offer_name(description):
+
+    message = (
+        f'Выввели следующее описание:\n\n'
+        f'{description}\n\n'
+        f'Подтверждаете?'
+    )
+
+    return message
+
+
+async def staff_create_offer_show_final_text(post_data, banks_accounts):
+
+    minAmount = 'Любая' if post_data['minAmount'] == None else f"{post_data['minAmount']} {post_data['currency']}"
+    maxAmount = 'Любая' if post_data['maxAmount'] == None else f"{post_data['maxAmount']} {post_data['currency']}"
+    
+    banks = ''
+    for bName in banks_accounts:
+        banks += f'👉 {bName["name"]}\n'
+
+    message = (
+        f'💰 Обмен {post_data["currency"]} 💰\n'
+        f'💸 {post_data["bannerName"]} 💸\n'
+        f'💳 Банки, с которыми работает обменник:👇\n'
+        f'{banks}\n'
+        f'▶️ Минимальная сумма обмена: ⚡ {minAmount}\n'
+        f'▶️ Максимальная сумма обмена: ⚡ {maxAmount}\n\n'
+        f'🔥 Курс в MNT: ⚡ {post_data["rate"]} \n'
+    )
+
+    return message

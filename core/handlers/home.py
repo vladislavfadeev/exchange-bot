@@ -31,10 +31,10 @@ async def command_start(message: Message, state: FSMContext):
     if data.get('mainMsg'):
         try:
             await bot.delete_message(
-                chat_id= message.from_user.id,
-                message_id=data['mainMsg'].message_id
-            )
-            if data.get('isStuff'):
+                chat_id= message.from_user.id,              # обернуть в отдельный try, иначе выдает меняле сообщение
+                message_id=data['mainMsg'].message_id       # юзера при нажатии на /start из какого-либо списка, так как 
+            )                                               # mainMsg удаляется при формировании списка и бот потом его 
+            if data.get('isStuff'):                         # не может найти и отрабатывает exception
 
                 transfers = data.get('user_transfers')
 
@@ -69,6 +69,7 @@ async def command_start(message: Message, state: FSMContext):
                 reply_markup= await user_home_inline_button()
             )
             await state.update_data(mainMsg = mainMsg)
+            await state.set_state(FSMSteps.USER_INIT_STATE)
     else:
         mainMsg =  await bot.send_message(
             message.from_user.id,
@@ -84,7 +85,7 @@ async def command_start(message: Message, state: FSMContext):
         )
         
         await state.update_data(mainMsg = mainMsg)
-    await state.set_state(FSMSteps.USER_INIT_STATE)
+        await state.set_state(FSMSteps.USER_INIT_STATE)
 
 
 async def command_staff(message: Message, state: FSMContext):
@@ -124,7 +125,7 @@ async def command_staff(message: Message, state: FSMContext):
                     transfers
                 )
             )
-            await state.update_data(isStuff = 1)
+            await state.update_data(isStuff = True)
             await state.set_state(FSMSteps.STUFF_INIT_STATE)
             
             scheduler.add_job(
@@ -145,6 +146,7 @@ async def command_staff(message: Message, state: FSMContext):
             message.from_user.id,
             text = f'Вы уже вошли в систему как зарегистрированный пользователь'
         )
+        # await state.set_state(FSMSteps.STUFF_INIT_STATE)
         await asyncio.sleep(3)
         try:
             await del_msg.delete()

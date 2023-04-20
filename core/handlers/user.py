@@ -597,21 +597,19 @@ async def register_message_handlers_user():
     '''Registry message handlers there.
     '''
     dp.message.register(
-        start_change,
-        F.text == 'Обменять валюту',
-        FSMSteps.USER_INIT_STATE
-    )
-    dp.message.register(
         set_amount_check,
-        FSMSteps.SET_AMOUNT_STATE
+        FSMSteps.SET_AMOUNT_STATE,
+        F.text
     )
     dp.message.register(
         choose_sell_bank,
-        FSMSteps.SET_SELL_BANK
+        FSMSteps.SET_SELL_BANK,
+        F.text
     )
     dp.message.register(
         apply_new_buy_bank,
-        FSMSteps.SET_BUY_BANK_ACCOUNT
+        FSMSteps.SET_BUY_BANK_ACCOUNT,
+        F.text
     )
     dp.message.register(
         get_user_proof,

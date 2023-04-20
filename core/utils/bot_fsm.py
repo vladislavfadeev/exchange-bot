@@ -15,5 +15,8 @@ class FSMSteps(StatesGroup):
     STUFF_INIT_STATE = State()
     STUFF_OFFERS = State()
     STUFF_OFFERS_RATE = State()
+    STAFF_OFFERS_MINAMOUNT = State()
+    STAFF_OFFERS_MAXAMOUNT = State()
+    STAFF_OFFERS_SETNAME = State()
     
 

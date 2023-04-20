@@ -48,7 +48,7 @@ async def user_back_home_inline_button():
     builder.button(
         text='↩ Вернуться на главную',
         callback_data=HomeData(
-            action='home'
+            action='cancel'
         )
     )
 
