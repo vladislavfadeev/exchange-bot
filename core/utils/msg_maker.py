@@ -337,7 +337,7 @@ async def stuff_create_new_offer_banks(currency, accounts = None):
 
     message_mini = (
         f'💰 Выберите счет(а), которые будут использоваться\n'
-        f'для перевода {currency}. Можно выбрать несколько,\n'
+        f'для перевода {currency} и MNT. Можно выбрать несколько,\n'
         'просто нажимайте на соответствующие кнопки ниже 👇'
     )
 
@@ -345,11 +345,12 @@ async def stuff_create_new_offer_banks(currency, accounts = None):
         acc_input = ''
 
         for account in accounts:
-            acc_input += f'\n⚡ {account["name"]}\n  {account["bankAccount"]}\n'
+            currency = account['currency']['name']
+            acc_input += f'\n⚡ {account["name"]}\n {currency} {account["bankAccount"]}\n'
 
         message = (
-            f'💰 Выберите счет(а), которые будут использоваться\n'
-            f'для перевода {currency}.\n'
+            f'💰 Выберите счет(а), которые будут\n'
+            f'использоваться для перевода {currency}.\n'
             f'{acc_input}'
             '\nМожно выбрать несколько, просто\n'
             'нажимайте на соответствующие кнопки ниже 👇'
@@ -416,7 +417,7 @@ async def staff_max_len_message(var):
 async def staff_show_offer_name(description):
 
     message = (
-        f'Выввели следующее описание:\n\n'
+        f'Вы ввели следующее описание:\n\n'
         f'{description}\n\n'
         f'Подтверждаете?'
     )
@@ -441,6 +442,28 @@ async def staff_create_offer_show_final_text(post_data, banks_accounts):
         f'▶️ Минимальная сумма обмена: ⚡ {minAmount}\n'
         f'▶️ Максимальная сумма обмена: ⚡ {maxAmount}\n\n'
         f'🔥 Курс в MNT: ⚡ {post_data["rate"]} \n'
+    )
+
+    return message
+
+async def staff_edit_offer_show(offer):
+
+    minAmount = 'Любая' if offer['minAmount'] == None else f"{offer['minAmount']} {offer['currency']}"
+    maxAmount = 'Любая' if offer['maxAmount'] == None else f"{offer['maxAmount']} {offer['currency']}"
+    
+    banks = ''
+    for bName in offer['banks']:
+        banks += f'👉 {bName["name"]}\n'
+
+    message = (
+        f'💰 Обмен {offer["currency"]} 💰\n'
+        f'💸 {offer["bannerName"]} 💸\n'
+        f'💳 Банки, с которыми работает обменник:👇\n'
+        f'{banks}\n'
+        f'▶️ Минимальная сумма обмена: ⚡ {minAmount}\n'
+        f'▶️ Максимальная сумма обмена: ⚡ {maxAmount}\n\n'
+        f'🔥 Курс в MNT: ⚡ {offer["rate"]} \n'
+        f'\n<b>Выберете что будем редактировать?</b>'
     )
 
     return message

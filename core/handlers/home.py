@@ -27,14 +27,32 @@ async def command_start(message: Message, state: FSMContext):
     '''
     await message.delete()
     data = await state.get_data()
+    mainMsg = data.get('mainMsg')
+    msg_list = data.get('messageList')
+    await state.update_data(messageList=[])
 
-    if data.get('mainMsg'):
+    if mainMsg:
+
         try:
-            await bot.delete_message(
-                chat_id= message.from_user.id,              # обернуть в отдельный try, иначе выдает меняле сообщение
-                message_id=data['mainMsg'].message_id       # юзера при нажатии на /start из какого-либо списка, так как 
-            )                                               # mainMsg удаляется при формировании списка и бот потом его 
-            if data.get('isStuff'):                         # не может найти и отрабатывает exception
+            await mainMsg.delete()
+
+            # await bot.delete_message(
+            #     chat_id= message.from_user.id,
+            #     message_id=data['mainMsg'].message_id
+            # )  
+
+        except:
+            pass
+        
+        if msg_list:
+            try:   
+                for i in msg_list:
+                    await i.delete()
+            except:
+                pass
+
+        try:
+            if data.get('isStuff'):
 
                 transfers = data.get('user_transfers')
 
@@ -57,11 +75,6 @@ async def command_start(message: Message, state: FSMContext):
             
         except Exception as e:
             logging.exception(e)
-            await state.update_data(messageList=[])
-            msg_list = data.get('messageList')
-
-            for i in range(len(msg_list)):
-                await msg_list[i].delete()
             
             mainMsg =  await bot.send_message(
                 message.from_user.id,
@@ -99,8 +112,18 @@ async def command_staff(message: Message, state: FSMContext):
     )
     data = await state.get_data()
     mainMsg = data.get('mainMsg')
+    messageList = data.get('messageList')
+    isStuff = data.get('isStuff')
 
-    if not data.get('isStuff'):
+    if messageList:
+        
+        for i in messageList:
+            try:
+                await i.delete()
+            except:
+                pass
+
+    if not isStuff:
         if response.status_code == 404:
             info_msg = await message.answer(
                 text=msg.staff_404
@@ -116,15 +139,16 @@ async def command_staff(message: Message, state: FSMContext):
             transfers = data.get('user_transfers')
 
             await message.delete()
-            await mainMsg.edit_text(
+            mainMsg = await bot.send_message(
+                message.from_user.id,
                 text = await msg_maker.staff_welcome(
-                    # response.json(),
                     transfers
                 ),
                 reply_markup = await changer_kb.staff_welcome_button(
                     transfers
                 )
             )
+            await state.update_data(mainMsg = mainMsg)
             await state.update_data(isStuff = True)
             await state.set_state(FSMSteps.STUFF_INIT_STATE)
             
@@ -140,7 +164,7 @@ async def command_staff(message: Message, state: FSMContext):
                 minutes=1.5,
                 args=(state, )
             )
-    else:
+    elif isStuff:
         await message.delete()
         del_msg = await bot.send_message(
             message.from_user.id,

@@ -91,9 +91,9 @@ async def stuff_edit_offer_list_buttons(offer_id, isLatest):
 
     builder = InlineKeyboardBuilder()
     actions = {
-        'edit': '⚙️ Редактировать',
-        'delete': '🗑️ Удалить',
-        'archive': '🗄 Убрать с публикации'
+        'staff_edit_offer': '⚙️ Редактировать',
+        'staff_delete_offer': '🗑️ Удалить',
+        'staff_unpublish_offer': '🗄 Убрать с публикации'
         
     }
 
@@ -110,9 +110,9 @@ async def stuff_edit_offer_list_buttons(offer_id, isLatest):
     if isLatest:
 
         builder.button(
-            text='↩ Вернуться на главную',
-            callback_data=HomeData(
-                action='cancel'
+            text='↩ Вернуться',
+            callback_data=StuffOfficeData(
+                action='offers'
             )
         )
 
@@ -127,9 +127,9 @@ async def stuff_edit_inactive_offers_buttons(offer_id, isLatest):
 
     builder = InlineKeyboardBuilder()
     actions = {
-        'edit': '⚙️ Редактировать',
-        'delete': '🗑️ Удалить из архива',
-        'setActive': '📢 Опубликовать'
+        'staff_edit_offer': '⚙️ Редактировать',
+        'staff_delete_offer': '🗑️ Удалить из архива',
+        'staff_publish_offer': '📢 Опубликовать'
         
     }
 
@@ -146,9 +146,9 @@ async def stuff_edit_inactive_offers_buttons(offer_id, isLatest):
     if isLatest:
 
         builder.button(
-            text='↩ Вернуться на главную',
-            callback_data=HomeData(
-                action='cancel'
+            text='↩ Вернуться',
+            callback_data=StuffOfficeData(
+                action='offers'
             )
         )
 
@@ -228,8 +228,11 @@ async def stuff_create_new_offer_banks_dis_next(banks):
     builder = InlineKeyboardBuilder()
 
     for bank in banks:
+
+        currency = bank['currency']['name']
+
         builder.button(
-            text = f"💳 {bank.get('name')} {bank.get('bankAccount')}",
+            text = f"💳 {bank.get('name')} - ({currency})\n{bank.get('bankAccount')}",
             callback_data=StuffEditData(
                 id=bank.get('id'),
                 action='staff_set_banks',
@@ -253,8 +256,10 @@ async def stuff_create_new_offer_banks(banks):
     builder = InlineKeyboardBuilder()
 
     for bank in banks:
+        currency = bank['currency']['name']
+
         builder.button(
-            text = f"💳 {bank.get('name')} {bank.get('bankAccount')}",
+            text = f"💳 {bank.get('name')} - ({currency})\n{bank.get('bankAccount')}",
             callback_data=StuffEditData(
                 id=bank.get('id'),
                 action='staff_set_banks',
@@ -531,4 +536,154 @@ async def staff_create_new_offer_succes():
         )
     )
     
+    return builder.as_markup()
+
+
+async def staff_edit_offer_show_kb(offer):
+
+    builder = InlineKeyboardBuilder()
+    actions = {
+        'staff_edit_offer_name': '👉 Комментарий',
+        'staff_edit_offer_rate': '👉 Курс обмена',
+        'staff_edit_offer_banks': '👉 Банк',
+        'staff_edit_offer_min_amount': '👉 Минимальная сумма обмена',
+        'staff_edit_offer_max_amount': '👉 Максимальная сумма обмена',
+    }
+
+    for action, text in actions.items():
+
+        builder.button(
+            text=text,
+            callback_data=StuffEditData(
+                id=offer.get('id'),
+                action=action,
+                value=''
+            )
+        )
+    builder.button(
+        text='↩ Отмена, на главную',
+        callback_data=HomeData(
+            action='cancel'
+        )
+    )
+    builder.adjust(1)
+
+    return builder.as_markup()
+
+
+async def staff_back_to_offer_menu():
+
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text='↩ Отмена, вернуться в меню',
+        callback_data=StuffOfficeData(
+            action='offers'
+        )
+    )
+
+    return builder.as_markup()
+
+
+async def staff_edit_offer_values(decline):
+    '''
+    '''
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text='👍 Продолжить',
+        callback_data=StuffEditData(
+            id=0,
+            action='staff_edit_accept',
+            value=''
+        )
+    )
+    builder.button(
+        text='⤴️ Вернуться, ввести заново',
+        callback_data=StuffEditData(
+            id=0,
+            action=decline,
+            value=''
+        )
+    )
+    builder.button(
+        text='↩ Вернуться на главную',
+        callback_data=StuffOfficeData(
+            action='offers'
+        )
+    )
+    builder.adjust(1)
+
+    return builder.as_markup()
+
+
+async def staff_edit_offer_succes_kb():
+
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text='👍 Понятно, в меню',
+        callback_data=StuffOfficeData(
+            action='offers'
+        )
+    )
+
+    return builder.as_markup()
+
+
+
+async def stuff_edit_offer_banks_dis_next(banks):
+
+    builder = InlineKeyboardBuilder()
+
+    for bank in banks:
+        currency = bank['currency']['name']
+
+        builder.button(
+            text = f"💳 {bank.get('name')} - ({currency})\n{bank.get('bankAccount')}",
+            callback_data=StuffEditData(
+                id=bank.get('id'),
+                action='staff_edit_offer_banks_set',
+                value=''
+            )
+        )
+    builder.button(
+        text='↩ Вернуться в меню',
+        callback_data=StuffOfficeData(
+            action='offers'
+        )
+    )
+    builder.adjust(1)
+
+    return builder.as_markup()
+
+
+async def stuff_edit_offer_banks(banks):
+
+    builder = InlineKeyboardBuilder()
+
+    for bank in banks:
+        currency = bank['currency']['name']
+
+        builder.button(
+            text = f"💳 {bank.get('name')} - ({currency})\n{bank.get('bankAccount')}",
+            callback_data=StuffEditData(
+                id=bank.get('id'),
+                action='staff_edit_offer_banks_set',
+                value=''
+            )
+        )
+    builder.button(
+        text='👍 Продолжить',
+        callback_data=StuffEditData(
+            id=0,
+            action='staff_edit_offer_banks_patch',
+            value=''
+        )
+    )
+    builder.button(
+        text='↩ Вернуться в меню',
+        callback_data=StuffOfficeData(
+            action='offers'
+        )
+    )
+    builder.adjust(1)
+
     return builder.as_markup()

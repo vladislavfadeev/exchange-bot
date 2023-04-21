@@ -29,6 +29,7 @@ class SimpleAPI():
 
 
     async def post(path, data):
+
         response = await client.post(
             path,
             data=data
@@ -37,6 +38,7 @@ class SimpleAPI():
     
     
     async def patch(path, detailUrl, data):
+        
         response = await client.patch(
             f'{path}/{detailUrl}',
             data=data

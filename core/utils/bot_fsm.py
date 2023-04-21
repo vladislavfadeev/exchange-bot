@@ -18,5 +18,5 @@ class FSMSteps(StatesGroup):
     STAFF_OFFERS_MINAMOUNT = State()
     STAFF_OFFERS_MAXAMOUNT = State()
     STAFF_OFFERS_SETNAME = State()
-    
+    STAFF_EDIT_VALUES = State()
 

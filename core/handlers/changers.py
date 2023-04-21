@@ -1,13 +1,10 @@
 from datetime import datetime
-from locale import currency
 import logging
-from sqlite3 import paramstyle
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.fsm.context import FSMContext
 from aiogram.types.callback_query import CallbackQuery
 from aiogram.types import Message
 from aiogram import F
-from pydantic import create_model_from_namedtuple
 from create_bot import bot, dp
 from core.middlwares.routes import r    # Dataclass whith all api routes
 from core.utils import msg_maker
@@ -35,10 +32,27 @@ async def offer_menu(
     await state.set_state(FSMSteps.STUFF_OFFERS)
     data = await state.get_data()
     mainMsg = data.get('mainMsg')
-    await mainMsg.edit_text(
+    messageList = data.get('messageList')
+
+    try:
+        await mainMsg.delete()
+    except:
+        pass
+
+    if messageList:
+
+        for i in messageList:
+            try:
+                await i.delete()
+            except:
+                pass
+
+    mainMsg = await bot.send_message(
+        call.from_user.id,
         text = await msg_maker.stuff_offer_menu(),
         reply_markup = await changer_kb.stuff_offer_menu_buttons()
     )
+    await state.update_data(mainMsg = mainMsg)
 
 
 
@@ -131,7 +145,7 @@ async def offer_menu_give_result(
                 
                 counter += 1
                 isLatest = True if counter == len(messages) else False
-                char = offer_list[i]
+                char = inactive_offers[i]
 
                 self_msg = await bot.send_message(
                     call.from_user.id,
@@ -160,6 +174,7 @@ async def stuff_create_new_offer_currency(
 ):
     '''
     '''
+
     if callback_data.action == 'new_offer_currency':
 
         await state.update_data(new_currency = callback_data.value)
@@ -220,14 +235,27 @@ async def stuff_create_new_offer_banks(
     data = await state.get_data()
     currency = data.get('new_currency')        
 
-    params = {
+    params_usd = {
         'owner': call.from_user.id,
         'isActive': True,
-        'search': currency
+        'currency__name': currency
+    }
+    params_mnt = {
+        'owner': call.from_user.id,
+        'isActive': True,
+        'currency__name': 'MNT'
     }
 
-    response = await SimpleAPI.get(r.changerRoutes.banks, params = params)    
+    response = await SimpleAPI.get(
+        r.changerRoutes.banks,
+        params = params_usd
+    )
+    response_mnt = await SimpleAPI.get(
+        r.changerRoutes.banks, 
+        params = params_mnt
+    )  
     banks = response.json()
+    banks.extend(response_mnt.json())
 
     if callback_data.action == 'create_new_offer_banks':
 
@@ -249,6 +277,8 @@ async def stuff_create_new_offer_banks(
 
         account_id = callback_data.id
         accounts = data.get('accounts')
+        
+        await call.answer()
 
         for i in banks:
             if i['id'] == account_id and i not in accounts:
@@ -261,7 +291,24 @@ async def stuff_create_new_offer_banks(
             reply_markup= await changer_kb.stuff_create_new_offer_banks(banks)
         )
 
-        
+    elif callback_data.action == 'staff_will_set_amount':
+
+        accounts = data.get('accounts')
+        currency_list = [i['currency']['name'] for i in accounts]
+
+        if currency not in currency_list:
+            await call.answer(f'Вы не указали банк для {currency}', show_alert=True)
+
+        if 'MNT' not in currency_list:
+            await call.answer(f'Вы не указали банк для MNT', show_alert=True)
+
+        elif currency in currency_list and 'MNT' in currency_list:
+            await call.message.edit_text(
+                text = msg.staff_will_set_amount,
+                reply_markup= await changer_kb.staff_will_set_amount_kb()
+            )
+
+
 
 async def stuff_create_new_offer_amount(
         call: CallbackQuery,
@@ -270,23 +317,15 @@ async def stuff_create_new_offer_amount(
 ):
     '''
     '''
-    if callback_data.action == 'staff_will_set_amount':
+    data = await state.get_data()
+    currency = data.get('new_currency')
 
-        await call.message.edit_text(
-            text = msg.staff_will_set_amount,
-            reply_markup= await changer_kb.staff_will_set_amount_kb()
-        )
+    await call.message.edit_text(
+        text = await msg_maker.staff_set_min_amount(currency),
+        reply_markup= await changer_kb.staff_set_min_amount()
+    )
+    await state.set_state(FSMSteps.STAFF_OFFERS_MINAMOUNT)
 
-    elif callback_data.action == 'set_min&max_amount':
-
-        data = await state.get_data()
-        currency = data.get('new_currency')
-
-        await call.message.edit_text(
-            text = await msg_maker.staff_set_min_amount(currency),
-            reply_markup= await changer_kb.staff_set_min_amount()
-        )
-        await state.set_state(FSMSteps.STAFF_OFFERS_MINAMOUNT)
 
 
 async def stuff_create_new_offer_min_amount(message: Message, state: FSMContext):
@@ -316,6 +355,7 @@ async def stuff_create_new_offer_min_amount(message: Message, state: FSMContext)
             reply_markup= await changer_kb.staff_accept_min_amount()
         )
         await state.set_state(FSMSteps.STUFF_OFFERS)    
+
 
 
 async def stuff_create_new_offer_max_amount(
@@ -396,6 +436,7 @@ async def stuff_create_new_offer_name(
         )
         await state.set_state(FSMSteps.STAFF_OFFERS_SETNAME)
         
+
 
 async def stuff_create_new_offer_name_setter(message: Message, state: FSMContext):
     '''
@@ -481,6 +522,392 @@ async def stuff_create_new_offer_final(
             text= msg.staff_create_new_offer_succes_non_active,
             reply_markup= await changer_kb.staff_create_new_offer_succes()
         )
+
+
+
+async def staff_edit_offer(
+        call: CallbackQuery,
+        state: FSMContext,
+        callback_data: StuffEditData
+):
+    '''
+    '''
+    offer_id = callback_data.id
+    response = await SimpleAPI.getDetails(
+        r.changerRoutes.myOffers,
+        offer_id
+    )
+    offer = response.json()
+    offer_currency = response.json()['currency']
+    await state.update_data(editable_offer_id = offer_id)
+    await state.update_data(offer_currency = offer_currency)
+
+    data = await state.get_data()
+    msg_list = data.get('messageList')
+    
+    try:
+
+        for i in range(len(msg_list)):
+            await msg_list[i].delete()
+
+    except Exception as e:
+        logging.exception(e)
+
+    else:
+        mainMsg = await bot.send_message(
+            call.from_user.id,
+            text = await msg_maker.staff_edit_offer_show(offer),
+            reply_markup= await changer_kb.staff_edit_offer_show_kb(offer)
+        )
+        await state.update_data(mainMsg = mainMsg)
+
+
+    
+async def staff_edit_offer_steps(
+        call: CallbackQuery,
+        state: FSMContext,
+        callback_data: StuffEditData
+):
+    '''
+    '''
+    data = await state.get_data()
+    currency = data.get('offer_currency')
+
+    if callback_data.action == 'staff_edit_offer_name':
+        
+        await call.message.edit_text(
+            text = msg.staff_set_offer_name,
+            reply_markup = await changer_kb.staff_back_to_offer_menu()
+        )
+        await state.update_data(editable_key = 'bannerName')
+        await state.set_state(FSMSteps.STAFF_EDIT_VALUES)
+
+    elif callback_data.action == 'staff_edit_offer_rate':
+        
+        await call.message.edit_text(
+            text = msg.staff_edit_offer_new_rate,
+            reply_markup = await changer_kb.staff_back_to_offer_menu()
+        )
+        await state.update_data(editable_key = 'rate')
+        await state.set_state(FSMSteps.STAFF_EDIT_VALUES)
+
+    elif callback_data.action == 'staff_edit_offer_min_amount':
+        
+        await call.message.edit_text(
+            text = await msg_maker.staff_set_min_amount(currency),
+            reply_markup = await changer_kb.staff_back_to_offer_menu()
+        )
+        await state.update_data(editable_key = 'minAmount')
+        await state.set_state(FSMSteps.STAFF_EDIT_VALUES)
+
+    elif callback_data.action == 'staff_edit_offer_max_amount':
+
+        await call.message.edit_text(
+            text = await msg_maker.stuff_set_max_amount(currency),
+            reply_markup = await changer_kb.staff_back_to_offer_menu()
+        )
+        await state.update_data(editable_key = 'maxAmount')
+        await state.set_state(FSMSteps.STAFF_EDIT_VALUES)
+
+
+
+async def staff_edit_offer_values_checker(
+        message: Message,
+        state: FSMContext
+):
+    '''
+    '''
+    await message.delete()
+    data = await state.get_data()
+    editable_key = data.get('editable_key')
+    mainMsg = data.get('mainMsg')
+    currency = data.get('offer_currency')
+
+    if editable_key == 'bannerName':
+        
+        try:
+
+            description = message.text
+
+            if len(description) > 50:
+                raise MaxLenError
+                
+        except MaxLenError:
+            await mainMsg.edit_text(
+                text = await msg_maker.staff_max_len_message(len(description)),
+                reply_markup = await changer_kb.sfuff_cancel_button()
+            )
+        
+        else:
+            await state.update_data(editable_field = description)
+
+            decline_edit_name = 'staff_edit_offer_name'
+
+            await mainMsg.edit_text(
+                text= await msg_maker.staff_show_offer_name(description),
+                reply_markup= await changer_kb.staff_edit_offer_values(
+                    decline_edit_name
+                )
+            )
+
+    elif editable_key == 'rate':
+    
+        try:
+
+            value = message.text
+            rate = float(value.replace(',', '.'))
+                
+        except (ValueError, AttributeError) as e:
+            logging.error(e)
+            await mainMsg.edit_text(
+                text = msg.staff_edit_offer_new_rate_error,
+                reply_markup = await changer_kb.sfuff_cancel_button()
+            )
+
+        else:
+            await state.update_data(editable_field = rate)
+
+            decline_edit_rate = 'staff_edit_offer_rate'
+
+            await mainMsg.edit_text(
+                text= await msg_maker.stuff_show_rate(rate, currency),
+                reply_markup= await changer_kb.staff_edit_offer_values(
+                    decline_edit_rate
+                )
+            )
+
+    elif editable_key in ['minAmount', 'maxAmount']:
+
+        try:
+
+            value = message.text
+            amount = float(value.replace(',', '.'))
+                
+        except ValueError as e:
+            logging.error(e)
+            await mainMsg.edit_text(
+                text = msg.type_error_msg,
+                reply_markup = await changer_kb.sfuff_cancel_button()
+            )
+
+        else:
+
+            await state.update_data(editable_field = amount)
+
+            if editable_key == 'minAmount':
+                
+                decline_edit_min_sum = 'staff_edit_offer_min_amount'
+
+                await mainMsg.edit_text(
+                    text= await msg_maker.stuff_show_min_amount(amount, currency),
+                    reply_markup= await changer_kb.staff_edit_offer_values(
+                        decline_edit_min_sum
+                    )
+                )
+            
+            elif editable_key == 'maxAmount':
+
+                decline_edit_max_sum = 'staff_edit_offer_max_amount'
+
+                await mainMsg.edit_text(
+                    text= await msg_maker.stuff_show_max_amount(amount, currency),
+                    reply_markup= await changer_kb.staff_edit_offer_values(
+                        decline_edit_max_sum
+                    )
+                )
+
+    await state.set_state(FSMSteps.STUFF_OFFERS)    
+
+
+
+async def staff_edit_offer_banks(
+        call: CallbackQuery,
+        state: FSMContext,
+        callback_data: StuffEditData
+):
+    '''
+    '''
+    data = await state.get_data()
+    currency = data.get('offer_currency')
+
+    params_usd = {
+        'owner': call.from_user.id,
+        'isActive': True,
+        'currency__name': currency
+    }
+    params_mnt = {
+        'owner': call.from_user.id,
+        'isActive': True,
+        'currency__name': 'MNT'
+    }
+
+    response = await SimpleAPI.get(
+        r.changerRoutes.banks,
+        params = params_usd
+    )
+    response_mnt = await SimpleAPI.get(
+        r.changerRoutes.banks, 
+        params = params_mnt
+    )  
+    banks = response.json()
+    banks.extend(response_mnt.json())
+
+    if callback_data.action == 'staff_edit_offer_banks':
+
+        offer_id = callback_data.id
+        await state.update_data(editable_offer_id = offer_id)
+
+        if len(banks):
+            await call.message.edit_text(
+                text = await msg_maker.stuff_create_new_offer_banks(currency),
+                reply_markup= await changer_kb.stuff_edit_offer_banks_dis_next(
+                    banks
+                )
+            )
+
+        else:
+            await call.message.edit_text(
+                text = msg.staff_zero_banks,
+                reply_markup= await changer_kb.staff_zero_banks_buttons()
+            )
+        
+    elif callback_data.action == 'staff_edit_offer_banks_set':
+
+        account_id = callback_data.id
+        accounts = data.get('editable_accounts')
+        
+        if not accounts:
+            accounts = []
+
+        await call.answer()
+
+        for i in banks:
+            if i['id'] == account_id and i not in accounts:
+                accounts.append(i)
+                
+        await state.update_data(editable_accounts = accounts)
+
+        await call.message.edit_text(
+            text = await msg_maker.stuff_create_new_offer_banks(currency, accounts),
+            reply_markup= await changer_kb.stuff_edit_offer_banks(banks)
+        )
+    
+    elif callback_data.action == 'staff_edit_offer_banks_patch':
+
+        accounts = data.get('editable_accounts')
+        currency_list = [i['currency']['name'] for i in accounts]
+
+        if currency not in currency_list:
+            await call.answer(f'Вы не указали банк для {currency}', show_alert=True)
+
+        if 'MNT' not in currency_list:
+            await call.answer(f'Вы не указали банк для MNT', show_alert=True)
+
+        else:
+            new_banks_id = [i['id'] for i in accounts]
+            offer_id = data.get('editable_offer_id')
+
+            patch_data = {
+                'banks_id': new_banks_id
+            }
+            await SimpleAPI.patch(
+                r.changerRoutes.myOffers,
+                offer_id,
+                patch_data
+            )
+            await call.message.edit_text(
+                text = msg.staff_edit_offer_banks_success,
+                reply_markup = await changer_kb.staff_edit_offer_succes_kb()
+            )
+
+
+
+async def staff_edit_offer_values_setter(
+        call: CallbackQuery,
+        state: FSMContext,
+        callback_data: StuffEditData
+):
+    '''
+    '''
+    data = await state.get_data()
+    message_list = data.get('messageList')
+
+    if callback_data.action == 'staff_edit_accept':
+        
+        key = data.get('editable_key')
+        value = data.get('editable_field')
+        offer_id = data.get('editable_offer_id')
+
+        patch_data = {
+            key: value
+        }
+
+        await SimpleAPI.patch(
+            r.changerRoutes.myOffers,
+            offer_id,
+            patch_data
+        )
+        await call.message.edit_text(
+            text = msg.staff_edit_offer_success,
+            reply_markup = await changer_kb.staff_edit_offer_succes_kb()
+        )
+
+    elif callback_data.action == 'staff_delete_offer':
+        
+        offer_id = callback_data.id
+
+        patch_data = {
+            'isDeleted': True
+        }
+
+        await SimpleAPI.patch(
+            r.changerRoutes.myOffers,
+            offer_id,
+            patch_data
+        )
+        await call.answer('Выполнено!', show_alert=True)
+
+        if len(message_list) > 1:
+            await call.message.delete()
+        
+        elif len(message_list) == 1:
+            await call.message.edit_text(
+                text = await msg_maker.stuff_offer_menu(),
+                reply_markup = await changer_kb.stuff_offer_menu_buttons()
+            )
+
+        # await call.message.edit_text(
+        #     text = msg.staff_delete_offer_success,
+        #     reply_markup = await changer_kb.staff_edit_offer_succes_kb()
+        # )
+    
+    elif callback_data.action in ['staff_publish_offer', 'staff_unpublish_offer']:
+        
+        offer_id = callback_data.id
+        value = True if callback_data.action == 'staff_publish_offer' else False
+
+        patch_data = {
+            'isActive': value
+        }
+        await SimpleAPI.patch(
+            r.changerRoutes.myOffers,
+            offer_id,
+            patch_data
+        )
+        await call.answer('Выполнено!', show_alert=True)
+
+        if len(message_list) > 1:
+            await call.message.delete()
+        
+        elif len(message_list) == 1:
+            await call.message.edit_text(
+                text = await msg_maker.stuff_offer_menu(),
+                reply_markup = await changer_kb.stuff_offer_menu_buttons()
+            )
+
+
+
+
 
 
 
@@ -641,6 +1068,13 @@ async def register_message_handlers_changer():
         F.text
     
     )
+    dp.message.register(
+
+        staff_edit_offer_values_checker,
+        FSMSteps.STAFF_EDIT_VALUES,
+        F.text
+
+    )
 
 
 
@@ -652,7 +1086,6 @@ async def register_callback_handler_changer():
 
         offer_menu,
         StuffOfficeData.filter(F.action == 'offers'),
-        FSMSteps.STUFF_INIT_STATE
     
     )
     dp.callback_query.register(
@@ -685,7 +1118,8 @@ async def register_callback_handler_changer():
         
             F.action.in_({
                 'create_new_offer_banks',
-                'staff_set_banks'
+                'staff_set_banks',
+                'staff_will_set_amount',
             })
         )
     )
@@ -695,7 +1129,6 @@ async def register_callback_handler_changer():
         StuffEditData.filter(
         
             F.action.in_({
-                'staff_will_set_amount',
                 'set_min&max_amount'
             })
         )
@@ -734,6 +1167,54 @@ async def register_callback_handler_changer():
                 'staff_post_offet_non_active',
             })
         )
+    )
+    dp.callback_query.register(
+
+        staff_edit_offer,
+        StuffEditData.filter(
+        
+            F.action == 'staff_edit_offer'
+        )
+    )
+    dp.callback_query.register(
+
+        staff_edit_offer_steps,
+        StuffEditData.filter(
+            
+            F.action.in_({
+                'staff_edit_offer_name',
+                'staff_edit_offer_rate',
+                'staff_edit_offer_min_amount',
+                'staff_edit_offer_max_amount',
+            })
+        )
+
+    )
+    dp.callback_query.register(
+
+        staff_edit_offer_values_setter,
+        StuffEditData.filter(
+            
+            F.action.in_({
+                'staff_edit_accept',
+                'staff_delete_offer',
+                'staff_publish_offer',
+                'staff_unpublish_offer',
+            })
+        )
+    )
+    dp.callback_query.register(
+
+        staff_edit_offer_banks,
+        StuffEditData.filter(
+            
+            F.action.in_({
+                'staff_edit_offer_banks',
+                'staff_edit_offer_banks_set',
+                'staff_edit_offer_banks_patch',
+            })
+        )
+
     )
 
     dp.callback_query.register(
