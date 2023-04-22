@@ -115,6 +115,11 @@ async def command_staff(message: Message, state: FSMContext):
     messageList = data.get('messageList')
     isStuff = data.get('isStuff')
 
+    try:
+        await mainMsg.delete()
+    except:
+        pass
+
     if messageList:
         
         for i in messageList:

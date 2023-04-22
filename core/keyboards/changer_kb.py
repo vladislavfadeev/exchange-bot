@@ -12,30 +12,6 @@ from core.keyboards.callbackdata import (
 )
 
 
-async def accept_user_transfer(transfer_id):
-    '''
-    '''
-    builder = InlineKeyboardBuilder()
-    actions = {
-        'accept': '🤝 Подтвердить получение',
-        'decline': '👎 Перевод не получил',
-        'admin': '⚠️ Связаться с админом'
-    
-    }
-
-    for action in actions.keys():
-        builder.button(
-            text=actions[action],
-            callback_data=UserProofActions(
-                action= action,
-                transferId=transfer_id
-            )
-        )
-    builder.adjust(1)
-
-    return builder.as_markup()
-
-
 
 async def staff_welcome_button(transfers):
 
@@ -45,8 +21,8 @@ async def staff_welcome_button(transfers):
     builder = InlineKeyboardBuilder()
     actions = {
         'offers': '📊 Мои предложения',
-        'accounts': '💳 Мои счета',
-        'transfers': button_text
+        'staff_show_accounts': '💳 Мои счета',
+        'staff_show_transfers': button_text
     }
     for action in actions.keys():
         builder.button(
@@ -65,7 +41,7 @@ async def stuff_offer_menu_buttons():
     builder = InlineKeyboardBuilder()
     actions = {
         'create_new': '📝 Создать новое',
-        'edit_offers': '⚙️ Редактировать',
+        'edit_offers': '⚙️ Активные',
         'inactive': '🗄 Не активные'
     }
     for action in actions.keys():
@@ -87,7 +63,7 @@ async def stuff_offer_menu_buttons():
 
 
 
-async def stuff_edit_offer_list_buttons(offer_id, isLatest):
+async def stuff_edit_offer_list_buttons(offer_id):
 
     builder = InlineKeyboardBuilder()
     actions = {
@@ -107,15 +83,6 @@ async def stuff_edit_offer_list_buttons(offer_id, isLatest):
                 value= ''
             )
         )
-    if isLatest:
-
-        builder.button(
-            text='↩ Вернуться',
-            callback_data=StuffOfficeData(
-                action='offers'
-            )
-        )
-
 
     builder.adjust(2, 1)
 
@@ -123,14 +90,13 @@ async def stuff_edit_offer_list_buttons(offer_id, isLatest):
 
 
 
-async def stuff_edit_inactive_offers_buttons(offer_id, isLatest):
+async def stuff_edit_inactive_offers_buttons(offer_id):
 
     builder = InlineKeyboardBuilder()
     actions = {
         'staff_edit_offer': '⚙️ Редактировать',
         'staff_delete_offer': '🗑️ Удалить из архива',
         'staff_publish_offer': '📢 Опубликовать'
-        
     }
 
     for action in actions.keys():
@@ -143,15 +109,6 @@ async def stuff_edit_inactive_offers_buttons(offer_id, isLatest):
                 value= ''
             )
         )
-    if isLatest:
-
-        builder.button(
-            text='↩ Вернуться',
-            callback_data=StuffOfficeData(
-                action='offers'
-            )
-        )
-
 
     builder.adjust(2, 1)
 
@@ -686,4 +643,117 @@ async def stuff_edit_offer_banks(banks):
     )
     builder.adjust(1)
 
+    return builder.as_markup()
+
+
+async def staff_edit_banks_accounts(account_id, isActive):
+
+    builder = InlineKeyboardBuilder()
+
+    if isActive:
+        actions = {
+            'staff_edit_banks_inactive': '🗄 Сделать не активным',
+            'staff_edit_banks_delete': '🗑️ Удалить',
+        }
+
+        for action in actions.keys():
+
+            builder.button(
+                text= actions[action],
+                callback_data=StuffEditData(
+                    id= account_id,
+                    action= action,
+                    value= ''
+                )
+            )
+
+    elif not isActive:
+        actions = {
+            'staff_edit_banks_active': '⚡ Сделать активным',
+            'staff_edit_banks_delete': '🗑️ Удалить',
+        }
+
+        for action in actions.keys():
+
+            builder.button(
+                text= actions[action],
+                callback_data=StuffEditData(
+                    id= account_id,
+                    action= action,
+                    value= ''
+                )
+            )
+
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+
+async def staff_show_transfers(transfer_id):
+
+    builder = InlineKeyboardBuilder()
+
+    builder.button(
+        text = '🤝 Ответить',
+        callback_data=StuffEditData(
+            id= transfer_id,
+            action= 'staff_transfers_get_detail',
+            value= ''
+        )
+    )
+
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+
+async def staff_show_transfer_detail_none_next(transfer_id):
+
+    contact = appSettings.botSetting.troubleStaffId
+
+    builder = InlineKeyboardBuilder()
+
+    builder.button(
+        text = '⚠️ Перевод не получил',
+        callback_data=StuffEditData(
+            id= transfer_id,
+            action= 'staff_transfer_claims',
+            value= ''
+        )
+    )
+
+    builder.button(
+        text='👮🏻 Связаться с админом',
+        url= f'tg://user?id={contact}',
+        callback_data=TestData(
+            url= ''
+        )
+    )
+    
+    return builder.as_markup()
+
+
+async def staff_show_transfer_detail(transfer_id):
+
+    contact = appSettings.botSetting.troubleStaffId
+
+    builder = InlineKeyboardBuilder()
+
+    builder.button(
+        text = '⚠️ Подтвердить',
+        callback_data=StuffEditData(
+            id= transfer_id,
+            action= 'staff_transfer_accepted',
+            value= ''
+        )
+    )
+
+    builder.button(
+        text='👮🏻 Связаться с админом',
+        url= f'tg://user?id={contact}',
+        callback_data=TestData(
+            url= ''
+        )
+    )
+    
     return builder.as_markup()

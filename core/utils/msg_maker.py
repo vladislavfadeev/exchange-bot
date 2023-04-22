@@ -467,3 +467,78 @@ async def staff_edit_offer_show(offer):
     )
 
     return message
+
+
+async def staff_show_editable_banks(banks):
+    
+
+    messages = []
+
+    for bank in banks:
+
+        messages.append(
+            f'💰 Банк {bank["name"]} 💰\n\n'
+            f'💵 Валюта {bank["currency"]["name"]} 💵\\n'
+            f'💳 Валюта {bank["bankAccount"]} 💳\n\n'
+
+        )
+
+    return messages
+
+
+async def staff_show_uncompleted_transfers(transfers):
+
+    messages = []
+
+    for transfer in transfers:
+
+        id = transfer['id']
+        sell_cur = transfer['sellCurrency']
+        sell_amount = transfer['sellAmount']
+        buy_amount = transfer['buyAmount']
+        rate = transfer['rate']
+
+        messages.append(
+            '⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️\n'
+            f'<b>Перевод id {id}</b>\n'
+            f'💰 Обмен {sell_cur} 💰\n'
+            f'Курс {rate} - сумма {sell_amount} {sell_cur}\n\n'
+            f'<b>Вам перевели {sell_amount} {sell_cur}</b>\n'
+        )
+
+    return messages
+
+
+
+async def staff_show_uncompleted_transfer_detail(transfer):
+
+    id = transfer['id']
+    sell_cur = transfer['sellCurrency']
+    sell_amount = transfer['sellAmount']
+    buy_amount = transfer['buyAmount']
+    rate = transfer['rate']
+    changer_bank_name = transfer['changerBank']['name']
+    changer_bank_acc = transfer['changerBank']['bankAccount']
+    user_bank_name = transfer['userBank']['bankAccount']
+    user_bank_acc = transfer['userBank']['bankAccount']
+
+    message = (
+        f'Перевод id {id}'
+        f'💰 Обмен {sell_cur} 💰\n'
+        f'Курс{rate} - сумма {sell_amount} {sell_cur}\n'
+        f'💳 Банк, на который пользователь сделал перевод:👇\n\n'
+        f'{changer_bank_name}\n'
+        f'{changer_bank_acc}\n\n'
+        f'Вы должны перевести ⚡ {buy_amount} MNT\n'
+        f'по следующим реквизитам :\n\n'
+        f'{user_bank_name}\n'
+        f'{user_bank_acc}\n\n'
+        '⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️'
+        'После этого сразу пришлите подтветрждение\n'
+        'в виде скриншота с платежной информацией или\n'
+        'чек и нажмите появившуюся кнопку "Подтвердить"!\n'
+        'В противном случае перевод не будет завершен\n'
+        'что прямо влияет на вашу репутацию!\n'
+    )
+
+    return message

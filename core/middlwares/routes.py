@@ -25,6 +25,7 @@ class ChangerRoutes:
     '''
     changerProfile: str
     transactions: str
+    checkBanks: str
     myOffers: str
     banks: str
 
@@ -61,6 +62,7 @@ def get_routes():
         changerRoutes = ChangerRoutes(
             changerProfile='api/v1/changer_profile',
             transactions='/api/v1/transactions',
+            checkBanks='/api/v1/changer_banks/checker_info',
             myOffers='/api/v1/offer',
             banks='/api/v1/changer_banks'
         ),
