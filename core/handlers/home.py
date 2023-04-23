@@ -18,8 +18,6 @@ from datetime import date
 import json
 import os
 
-# from core.utils.notifier import 
-
 
 
 async def command_start(message: Message, state: FSMContext):
@@ -115,20 +113,8 @@ async def command_staff(message: Message, state: FSMContext):
     messageList = data.get('messageList')
     isStuff = data.get('isStuff')
 
-    try:
-        await mainMsg.delete()
-    except:
-        pass
-
-    if messageList:
-        
-        for i in messageList:
-            try:
-                await i.delete()
-            except:
-                pass
-
     if not isStuff:
+
         if response.status_code == 404:
             info_msg = await message.answer(
                 text=msg.staff_404
@@ -141,7 +127,21 @@ async def command_staff(message: Message, state: FSMContext):
                 pass
 
         elif response.status_code == 200:
-            transfers = data.get('user_transfers')
+
+            if messageList:
+                
+                for i in messageList:
+                    try:
+                        await i.delete()
+                    except:
+                        pass
+            
+            try:
+                await mainMsg.delete()
+            except:
+                pass
+
+            transfers = data.get('uncompleted_transfers')
 
             await message.delete()
             mainMsg = await bot.send_message(
@@ -203,7 +203,7 @@ async def user_main_menu(
 
         if data.get('isStuff'):
 
-            transfers = data.get('user_transfers')
+            transfers = data.get('uncompleted_transfers')
 
             if len(msg_list):
                 mainMsg = await bot.send_message(
@@ -247,7 +247,7 @@ async def user_main_menu(
         
         if data.get('isStuff'):
 
-            transfers = data.get('user_transfers')
+            transfers = data.get('uncompleted_transfers')
 
             await call.message.edit_text(
                 text = await msg_maker.staff_welcome(transfers),

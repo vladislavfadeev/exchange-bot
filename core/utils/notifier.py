@@ -18,18 +18,18 @@ async def changer_notifier(
     data = await state.get_data()
     current_state = await state.get_state()
     mainMsg = data.get('mainMsg')
-    user_transfers = data.get('user_transfers')
+    uncompleted_transfers = data.get('uncompleted_transfers')
 
-    if user_transfers and current_state == FSMSteps.STUFF_INIT_STATE:
+    if uncompleted_transfers and current_state == FSMSteps.STUFF_INIT_STATE:
 
         await mainMsg.delete()
         alertMsg = await bot.send_message(
             mainMsg.chat.id,
             text= await msg_maker.staff_welcome(
-                user_transfers
+                uncompleted_transfers
             ),
             reply_markup= await changer_kb.staff_welcome_button(
-                user_transfers
+                uncompleted_transfers
             )
         )
         await state.update_data(mainMsg = alertMsg)
@@ -44,7 +44,6 @@ async def get_new_transfers(
     '''
     params = {
         'changer': changer_id,
-        'changerSendMoneyDate': None,
         'claims': False,
         'isCompleted': False
     }
@@ -55,10 +54,10 @@ async def get_new_transfers(
 
     new_user_transfers = response.json()
     data = await state.get_data()
-    user_transfers = data.get('user_transfers')
+    uncompleted_transfers = data.get('uncompleted_transfers')
 
-    if user_transfers != new_user_transfers:
+    if uncompleted_transfers != new_user_transfers:
 
         await state.update_data(
-            user_transfers = new_user_transfers
+            uncompleted_transfers = new_user_transfers
         )

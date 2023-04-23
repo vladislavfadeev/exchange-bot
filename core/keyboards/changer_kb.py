@@ -733,7 +733,7 @@ async def staff_show_transfer_detail_none_next(transfer_id):
     return builder.as_markup()
 
 
-async def staff_show_transfer_detail(transfer_id):
+async def staff_show_transfer_detail_accept(transfer_id):
 
     contact = appSettings.botSetting.troubleStaffId
 

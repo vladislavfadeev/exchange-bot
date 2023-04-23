@@ -1,4 +1,3 @@
-
 from aiogram.types import KeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 from core.api_actions.bot_api import SimpleAPI
@@ -115,6 +114,7 @@ async def set_sell_bank(banks):
                 setNew=False
             )
         )
+    builder.adjust(1)
 
     return builder.as_markup()
 

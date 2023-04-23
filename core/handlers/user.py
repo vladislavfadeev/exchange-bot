@@ -251,7 +251,7 @@ async def choose_sell_bank(
     params = {
         'owner': offerData["owner"],
         'isActive': True,
-        'search': offerData["currency"]
+        'currency__name': offerData["currency"]
     }
 
     banks = await SimpleAPI.get(
@@ -341,10 +341,7 @@ async def apply_new_buy_bank(message: Message, state: FSMContext):
         }
 
         account = await SimpleAPI.post(r.userRoutes.userBanks, postData)
-        await bot.send_message(
-            changerId,
-            text= await msg_maker.changer_inform(changerId, allData)
-        )
+
         await mainMsg.edit_text( 
             text= await msg_maker.complete_set_new_bank(allData),
             reply_markup= await home_kb.user_back_home_inline_button()
@@ -426,8 +423,8 @@ async def get_user_proof(message: Message, state: FSMContext):
             'changer': changerId,
             'offer': offerId,
             'user': accountId,
-            'changerBank': changerBank,
-            'userBank': userBank,
+            'changerBank_id': changerBank,
+            'userBank_id': userBank,
             'sellCurrency': sellCurrency,
             'buyCurrency': 'MNT',
             'sellAmount': sellAmount,
@@ -439,25 +436,6 @@ async def get_user_proof(message: Message, state: FSMContext):
         }
 
         response = await SimpleAPI.post(r.userRoutes.transactions, data=data)
-
-
-        # if proofType == 'photo':
-
-        #     await bot.send_photo(
-        #         changerId,
-        #         photo = fileId,
-        #         caption= await msg_maker.accept_user_transfer(),
-        #         reply_markup= await changer_kb.accept_user_transfer(response.json()['id'])
-        #     )
-
-        # if proofType == 'document':
-
-        #     await bot.send_document(
-        #         changerId, 
-        #         document= fileId,
-        #         caption= await msg_maker.accept_user_transfer(),
-        #         reply_markup= await changer_kb.accept_user_transfer(response.json()['id'])
-        #     )
 
         await message.delete()
         await mainMsg.edit_text(
@@ -613,7 +591,7 @@ async def register_message_handlers_user():
     )
     dp.message.register(
         get_user_proof,
-        F.content_type.in_({'photo', 'document'}),
+        # F.content_type.in_({'photo', 'document'}),
         FSMSteps.GET_USER_PROOF
     )
 
