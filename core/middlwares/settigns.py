@@ -15,12 +15,14 @@ class BotSettings:
 class APISettings:
     baseUrl: str
     authToken: str
+    redisKey: str
 
 
 @dataclass
 class Settings:
     botSetting: BotSettings
     apiSettings: APISettings
+    
 
 
 def get_settings(path: str):
@@ -38,6 +40,7 @@ def get_settings(path: str):
         apiSettings = APISettings(
             baseUrl=env.str("BASE_URL"),
             authToken=env.str("BACKEND_AUTH_TOKEN"),
+            redisKey=env.str("REDIS_KEY")
 
         )
     )

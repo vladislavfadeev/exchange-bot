@@ -16,11 +16,12 @@ class FSMSteps(StatesGroup):
     STUFF_INIT_STATE = State()
     STUFF_ACCOUNTS = State()
     STAFF_TRANSFRES = State()
-    STUFF_OFFERS = State()
+    STUFF_OFFERS_MENU = State()
     STUFF_OFFERS_RATE = State()
     STAFF_OFFERS_MINAMOUNT = State()
     STAFF_OFFERS_MAXAMOUNT = State()
     STAFF_OFFERS_SETNAME = State()
     STAFF_EDIT_VALUES = State()
     STAFF_TRANSFERS_PROOF = State()
+    STAFF_WAITER = State()
 

@@ -1,4 +1,6 @@
 from core.middlwares.settigns import appSettings
+from aiogram.fsm.context import FSMContext
+from core.middlwares.middleware import SchedulerMiddleware
 from core.handlers.home import (
     register_handlers_home,
     register_callback_handlers_home,
@@ -23,6 +25,10 @@ logging.basicConfig(
             "(%(filename)s).%(funcName)s(%(lineno)d) - %(message)s"
 )
 
+async def register_middleware():
+    
+    dp.update.middleware.register(SchedulerMiddleware(scheduler))
+
 
 async def register_handlers():
 
@@ -36,11 +42,14 @@ async def register_handlers():
 
 async def start_bot():
 
+    await register_middleware()
     await register_handlers()
 
     try:
+        
         scheduler.start()
         await dp.start_polling(bot)
+
     finally:
         # await bot.send_message(
         #     appSettings.botSetting.adminId,
@@ -60,6 +69,20 @@ if __name__ == '__main__':
 
 
 
+
+# from aiogram.fsm.context import FSMContext
+# from aiogram.fsm.storage.base import StorageKey
+
+# user_id = ... # юзер айди искомого юзера
+# chat_id = ... # чат айди, где находится юзер
+
+# state_with: FSMContext = FSMContext(
+#     bot=bot, # объект бота
+#     storage=dp.storage, # dp - экземпляр диспатчера 
+#     key=StorageKey(
+#         chat_id=chat_id, # если юзер в ЛС, то chat_id=user_id
+#         user_id=user_id,  
+#         bot_id=bot.id))
 
 
 

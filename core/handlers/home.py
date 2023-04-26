@@ -1,23 +1,26 @@
 import asyncio
 import logging
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import Command
 from aiogram.types import Message
 from aiogram.types.callback_query import CallbackQuery
+from aiogram import F
 from core.keyboards import changer_kb, home_kb
 from core.keyboards.callbackdata import HomeData
-from core.utils.notifier import changer_notifier, get_new_transfers
-from create_bot import dp, bot, scheduler
-from aiogram import F
+from create_bot import dp, bot
 from core.keyboards.home_kb import user_home_button, user_home_inline_button
 from core.api_actions.bot_api import SimpleAPI
 from core.utils import msg_maker, msg_var as msg
 from core.utils.bot_fsm import FSMSteps
 from core.middlwares.routes import r    # Dataclass whith all api routes
 from datetime import date
-import json
 import os
-
+from core.utils.notifier import (
+    changer_notifier,
+    transfers_getter,
+    new_transfer_cheker
+)
 
 
 async def command_start(message: Message, state: FSMContext):
@@ -33,12 +36,6 @@ async def command_start(message: Message, state: FSMContext):
 
         try:
             await mainMsg.delete()
-
-            # await bot.delete_message(
-            #     chat_id= message.from_user.id,
-            #     message_id=data['mainMsg'].message_id
-            # )  
-
         except:
             pass
         
@@ -52,7 +49,7 @@ async def command_start(message: Message, state: FSMContext):
         try:
             if data.get('isStuff'):
 
-                transfers = data.get('user_transfers')
+                transfers = data.get('uncompleted_transfers')
 
                 mainMsg = await bot.send_message(
                     message.from_user.id,
@@ -69,7 +66,10 @@ async def command_start(message: Message, state: FSMContext):
                     text=msg.start_message, 
                     reply_markup= await user_home_inline_button()
                 )
-            await state.update_data(mainMsg = mainMsg)
+            
+            await state.update_data(
+                mainMsg = mainMsg
+            )
             
         except Exception as e:
             logging.exception(e)
@@ -79,6 +79,7 @@ async def command_start(message: Message, state: FSMContext):
                 text=msg.start_message,
                 reply_markup= await user_home_inline_button()
             )
+            
             await state.update_data(mainMsg = mainMsg)
             await state.set_state(FSMSteps.USER_INIT_STATE)
     else:
@@ -94,15 +95,18 @@ async def command_start(message: Message, state: FSMContext):
                 "isActive": True
             }
         )
-        
         await state.update_data(mainMsg = mainMsg)
         await state.set_state(FSMSteps.USER_INIT_STATE)
 
 
-async def command_staff(message: Message, state: FSMContext):
-    '''Handler ansver on command "/staff"
+
+async def command_login(
+        message: Message,
+        state: FSMContext,
+        apscheduler: AsyncIOScheduler
+):
+    '''Handler ansver on command "/login"
     '''
-    data = await state.get_data()
 
     response = await SimpleAPI.getDetails(
         r.changerRoutes.changerProfile,
@@ -112,6 +116,8 @@ async def command_staff(message: Message, state: FSMContext):
     mainMsg = data.get('mainMsg')
     messageList = data.get('messageList')
     isStuff = data.get('isStuff')
+    uncompleted_transfers = data.get('uncompleted_transfers')
+    new_transfer = data.get('new_transfer')
 
     if not isStuff:
 
@@ -128,6 +134,12 @@ async def command_staff(message: Message, state: FSMContext):
 
         elif response.status_code == 200:
 
+            if uncompleted_transfers is None:
+                await state.update_data(uncompleted_transfers = [])
+
+            if new_transfer is None:
+                await state.update_data(new_transfer = [])
+
             if messageList:
                 
                 for i in messageList:
@@ -136,10 +148,22 @@ async def command_staff(message: Message, state: FSMContext):
                     except:
                         pass
             
-            try:
-                await mainMsg.delete()
-            except:
-                pass
+            if mainMsg:
+                try:
+                    await mainMsg.delete()
+                except:
+                    pass
+
+            changer_id = message.from_user.id
+
+            patch_data = {
+                'online': True
+            }
+            await SimpleAPI.patch(
+                r.changerRoutes.changerProfile,
+                changer_id,
+                patch_data
+            )
 
             transfers = data.get('uncompleted_transfers')
 
@@ -157,32 +181,110 @@ async def command_staff(message: Message, state: FSMContext):
             await state.update_data(isStuff = True)
             await state.set_state(FSMSteps.STUFF_INIT_STATE)
             
-            scheduler.add_job(
-                get_new_transfers,
+            # getter_id = f'getter-{message.from_user.id}'
+
+            # apscheduler.add_job(
+            #     transfers_getter,
+            #     'interval',
+            #     minutes=1,
+            #     id = getter_id,
+            #     kwargs={
+            #         'changer_id': changer_id,
+            #     }
+            # )
+
+            cheker_job_id = f'cheker-{message.from_user.id}'
+            apscheduler.add_job(
+                new_transfer_cheker,
                 'interval',
-                minutes=1,
-                args=(message.from_user.id, state)
+                seconds = 30,
+                id = cheker_job_id,
+                kwargs={
+                    'changer_id': changer_id,
+                }
             )
-            scheduler.add_job(
-                changer_notifier,
-                'interval',
-                minutes=1.5,
-                args=(state, )
-            )
+
     elif isStuff:
         await message.delete()
         del_msg = await bot.send_message(
             message.from_user.id,
             text = f'Вы уже вошли в систему как зарегистрированный пользователь'
         )
-        # await state.set_state(FSMSteps.STUFF_INIT_STATE)
-        await asyncio.sleep(3)
+        await asyncio.sleep(2)
         try:
             await del_msg.delete()
         except:
             pass
 
+
+
+async def command_logout(
+        message: Message,
+        state: FSMContext,
+        apscheduler: AsyncIOScheduler
+):
+    '''
+    '''
+    data = await state.get_data()
+    mainMsg = data.get('mainMsg')
+    messageList = data.get('messageList')
+    isStuff = data.get('isStuff')
+
+    await message.delete()
+
+    if isStuff:
+
+        if messageList:
             
+            for i in messageList:
+                try:
+                    await i.delete()
+                except:
+                    pass
+        
+        if mainMsg:
+            try:
+                await mainMsg.delete()
+            except:
+                pass
+
+        mainMsg =  await bot.send_message(
+            message.from_user.id,
+            text=msg.start_message, 
+            reply_markup= await user_home_inline_button()
+        )
+        patch_data = {
+            'online': False
+        }
+
+        await SimpleAPI.patch(
+            r.changerRoutes.changerProfile,
+            message.from_user.id,
+            patch_data
+        )
+        
+        await state.update_data(mainMsg = mainMsg)
+        await state.update_data(isStuff = False)
+        await state.set_state(FSMSteps.USER_INIT_STATE)
+
+        # apscheduler.remove_job(f'getter-{message.from_user.id}')
+        # apscheduler.remove_job(f'notifier-{message.from_user.id}')
+        apscheduler.remove_job(f'cheker-{message.from_user.id}')
+
+    else:
+
+        del_msg = await bot.send_message(
+            message.from_user.id,
+            text = f'Вы не авторизованы'
+        )
+        await asyncio.sleep(2)
+        try:
+            await del_msg.delete()
+        except:
+            pass
+    
+
+
 
 async def user_main_menu(
         call: CallbackQuery,
@@ -197,9 +299,9 @@ async def user_main_menu(
 
     try:
         
-        if len(msg_list):
-            for i in range(len(msg_list)):
-                await msg_list[i].delete()
+        if msg_list:
+            for i in msg_list:
+                await i.delete()
 
         if data.get('isStuff'):
 
@@ -265,6 +367,7 @@ async def user_main_menu(
             await state.set_state(FSMSteps.USER_INIT_STATE)
 
 
+
 async def get_help(
         call: CallbackQuery,
         state: FSMContext,
@@ -291,13 +394,14 @@ async def work_time(
     )
 
 
+
 async def del_not_handled_message(message: Message):
 
     bill = message.text
     await message.delete()
     del_msg = await bot.send_message(
         message.from_user.id,
-        text = f'неизвестная команда {bill}')
+        text = f'Unknown command: "{bill}"')
     await asyncio.sleep(3)
     try:
         await del_msg.delete()
@@ -305,33 +409,24 @@ async def del_not_handled_message(message: Message):
         pass
 
 
-async def command_cancel(message: Message, state: FSMContext):
-    '''
-    '''
-    await message.answer('Отменено')
-    await bot.send_message(
-        message.from_user.id,
-        text=msg.start_message, 
-        reply_markup=user_home_button()
-    )
-    await state.set_state(FSMSteps.USER_INIT_STATE)
-
-
 
 # Only for dev
-async def msg_json(message: Message, state: FSMContext):
-    await message.answer('Printed to console')
-    fileId = message.document.file_id
-    await state.update_data(fileId = fileId)
-    # json_str = json.dumps(message.dict(), default=str)
-    # print(json_str)
+async def msg_dumps(message: Message, state: FSMContext, apscheduler: AsyncIOScheduler):
+
+    i = apscheduler.get_jobs()
+    print(i)
+    # await message.answer('Printed to console')
+    # fileId = message.document.file_id
+    # await state.update_data(fileId = fileId)
+    # dumps_str = dumps.dumps(message.dict(), default=str)
+    # print(dumps_str)
     # res = await bot.send_message(
     #     message.from_user.id,
     #     text='yh'
     # )
-    # print(json.dumps(res.dict(), default=str))
+    # print(dumps.dumps(res.dict(), default=str))
     await message.delete()
-        
+
 
 
 async def register_handlers_home():
@@ -339,24 +434,21 @@ async def register_handlers_home():
     '''
     dp.message.register(
         command_start,
-        Command(commands=['start'],),
+        Command(commands=['start'],)
     )
     dp.message.register(
-        command_staff,
-        Command(commands=['staff'])
+        command_login,
+        Command(commands=['login'])
     )
     dp.message.register(
-        command_cancel,
-        F.text == 'Отмена'
+        command_logout,
+        Command(commands=['logout'])
     )
+    dp.message.register(msg_dumps, F.text == 'get_info')
     dp.message.register(
         del_not_handled_message,
     )
 
-    # dev func
-    dp.message.register(msg_json, F.document)
-    # dp.message.register(file_info, F.content_type.in_({'photo', 'document'}))
-    # dp.message.register(file_info, F.text == 'get file')
 
 
 async def register_callback_handlers_home():
@@ -382,7 +474,8 @@ async def register_callback_handlers_home():
 
 
 
-
+    # dp.message.register(file_info, F.content_type.in_({'photo', 'document'}))
+    # dp.message.register(file_info, F.text == 'get file')
 
 
 # async def file_info(message: Message, state: FSMContext):
@@ -390,8 +483,8 @@ async def register_callback_handlers_home():
 #     data = await state.get_data()
 #     await bot.send_document('151436997', document= data['fileId'])
     # if message.document:
-    #     json_str = json.dumps(message.dict(), default=str)
-    #     print(json_str)
+    #     dumps_str = dumps.dumps(message.dict(), default=str)
+    #     print(dumps_str)
 
     #     file1 = await bot.get_file(message.document.file_id)
     #     print(message.document.file_id)
@@ -406,8 +499,8 @@ async def register_callback_handlers_home():
     #     await message.answer(text='photo')
     #     file = await bot.get_file(message.photo[-1].file_id)
     #     await bot.download_file(file.file_path, f'{dir}/{message.photo[-1].file_unique_id}.jpg')
-    #     # json_str = json.dumps(message.dict(), default=str)
-    #     # print(json_str)
+    #     # dumps_str = dumps.dumps(message.dict(), default=str)
+    #     # print(dumps_str)
 
     # !elif message.document:
     #     await message.answer(text='doc')

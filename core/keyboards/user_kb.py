@@ -24,21 +24,26 @@ async def set_sell_currency_button():
     builder = InlineKeyboardBuilder()
 
     for curr in currency.json():
-        builder.button(
-            text=curr["name"],
-            callback_data=CurrencyData(
-                id=curr['id'],
-                name=curr['name'],
-                isReturned=False
+        
+        if curr['name'] == 'MNT':
+            pass
+
+        else:
+            builder.button(
+                text=curr["name"],
+                callback_data=CurrencyData(
+                    id=curr['id'],
+                    name=curr['name'],
+                    isReturned=False
+                )
             )
-        )
     builder.button(
         text='↩ Отменить',
         callback_data= HomeData(
             action='cancel'
         )
     )
-    builder.adjust(3)
+    builder.adjust(2, 1)
 
     return builder.as_markup()
 
@@ -98,6 +103,7 @@ async def set_amount_check_inlkb():
             isReturned=True
         )
     )
+    builder.adjust(1)
 
     return builder.as_markup()
     

@@ -34,7 +34,7 @@ async def offer_menu(
 ):
     '''
     '''
-    await state.set_state(FSMSteps.STUFF_OFFERS)
+    await state.set_state(FSMSteps.STUFF_OFFERS_MENU)
     data = await state.get_data()
     mainMsg = data.get('mainMsg')
     messageList = data.get('messageList')
@@ -374,7 +374,7 @@ async def stuff_create_new_offer_min_amount(message: Message, state: FSMContext)
             text= await msg_maker.stuff_show_min_amount(amount, currency),
             reply_markup= await changer_kb.staff_accept_min_amount()
         )
-        await state.set_state(FSMSteps.STUFF_OFFERS)    
+        await state.set_state(FSMSteps.STUFF_OFFERS_MENU)    
 
 
 

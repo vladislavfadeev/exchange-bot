@@ -1,21 +1,20 @@
 import asyncio
-from datetime import datetime
 import logging
+from datetime import datetime
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.fsm.context import FSMContext
 from aiogram.types.callback_query import CallbackQuery
+from aiogram.fsm.storage.base import StorageKey
 from aiogram.types import Message
 from aiogram import F
 from core.keyboards import admin_kb, home_kb
 from core.middlwares.settigns import appSettings
-from core.keyboards.home_kb import user_home_button
-from create_bot import bot, dp, scheduler
+from create_bot import bot, dp
 from core.middlwares.routes import r    # Dataclass whith all api routes
 from core.utils import msg_maker, msg_var
 from core.api_actions.bot_api import SimpleAPI
 from core.utils.bot_fsm import FSMSteps
 from core.utils import msg_var as msg
-from core.keyboards import changer_kb
 from core.keyboards import user_kb
 from core.keyboards.callbackdata import (
     AmountData,
@@ -42,25 +41,30 @@ async def start_change(
     '''Handler is start user change currency process.
     React on "Обменять валюту" in "FSMSteps.INIT_STATE"
     ''' 
+    data = await state.get_data()
+    messageList = data.get('messageList')
+    mainMsg = data.get('mainMsg')
+    await state.update_data(messageList=[])
+    
     try:
-        data = await state.get_data()
-        await state.update_data(messageList=[])
-        msg_list = data['messageList']
-        msg_list.pop()
+        await mainMsg.delete()
+    except:
+        pass
 
-        for i in range(len(msg_list)):
-            await msg_list[i].delete()
-        
-        await call.message.edit_text(
-            text=msg.currency_choice_1,
-            reply_markup=await user_kb.set_sell_currency_button()
-        )
-    except Exception as e:
-        logging.exception(e)
-        await call.message.edit_text(
-            text=msg.currency_choice_1, 
-            reply_markup= await user_kb.set_sell_currency_button()
-        )
+    if messageList:
+
+        for i in messageList:
+            try:
+                await i.delete()
+            except:
+                pass
+
+    mainMsg = await bot.send_message(
+        call.from_user.id,
+        text=msg.currency_choice_1,
+        reply_markup=await user_kb.set_sell_currency_button()
+    )
+    await state.update_data(mainMsg = mainMsg)
 
 
 
@@ -75,17 +79,19 @@ async def show_offer(
     params = {
         'currency': callback_data.name,
         'isActive': True,
-        'isDeleted': False
+        'isDeleted': False,
+        'owner__online': True
     }
     
     offers = await SimpleAPI.get(
         r.userRoutes.offer,
         params
     )
-    if len(offers.json()):
+    offers = offers.json()
+    if len(offers):
 
-        await state.update_data(offerList = offers.json())
-        messages = await msg_maker.offer_list_msg_maker(offers.json())
+        await state.update_data(offerList = offers)
+        messages = await msg_maker.offer_list_msg_maker(offers)
 
         await call.message.delete()
         
@@ -94,7 +100,7 @@ async def show_offer(
         for i in range(len(messages)):
 
             counter += 1
-            value = offers.json()[i]
+            value = offers[i]
             builder = InlineKeyboardBuilder()
             builder.button(
                 text=f'🔥 Обменять {value["currency"]} тут 🔥',
@@ -373,20 +379,17 @@ async def use_old_buy_bank(
     '''
     '''
     allData = await state.get_data()
-    changerId = allData['selectedOffer']['owner']
     accountId = callback_data.id
     
-    userAccount = await SimpleAPI.getDetails(r.userRoutes.userBanks, accountId)
+    userAccount = await SimpleAPI.getDetails(
+        r.userRoutes.userBanks,
+        accountId
+    )
     await state.update_data(userAccount = userAccount.json())
 
     await call.message.edit_text(
         text= await msg_maker.complete_set_new_bank(allData),
         reply_markup= await home_kb.user_back_home_inline_button()
-    )
-
-    await bot.send_message(
-        changerId,
-        text= await msg_maker.changer_inform(changerId, allData)
     )
     await state.set_state(FSMSteps.GET_USER_PROOF)
 
@@ -397,7 +400,7 @@ async def get_user_proof(message: Message, state: FSMContext):
     '''
 
     allData = await state.get_data()
-    mainMsg = allData['mainMsg']
+    mainMsg: Message = allData['mainMsg']
     changerId = allData['selectedOffer']['owner']
     offerId = allData['selectedOffer']['id']
     changerBank = allData['sellBank']
@@ -419,6 +422,16 @@ async def get_user_proof(message: Message, state: FSMContext):
             fileId = message.document.file_id
             proofType = 'document'
 
+    except Exception as e:
+
+        logging.exception(e)
+
+        await message.delete()
+        await mainMsg.edit_text(
+            text='⚠️ Data type is not provided, try again ⚠️',
+            reply_markup = await user_kb.get_trouble_staff_contact()
+        )
+    else:
         data = {
             'changer': changerId,
             'offer': offerId,
@@ -435,7 +448,28 @@ async def get_user_proof(message: Message, state: FSMContext):
             'userProof': fileId,
         }
 
-        response = await SimpleAPI.post(r.userRoutes.transactions, data=data)
+        response = await SimpleAPI.post(
+            r.userRoutes.transactions,
+            data=data
+        )
+
+        changer_state: FSMContext = FSMContext(
+            bot=bot,
+            storage=dp.storage,
+            key=StorageKey(
+                chat_id=changerId,
+                user_id=changerId,  
+                bot_id=bot.id
+            )
+        )
+        ch_data: dict = await changer_state.get_data()
+        current_tr_list: list = ch_data.get('new_transfer')
+
+        current_tr_list.append(response.json())
+
+        await changer_state.update_data(
+            new_transfer = current_tr_list
+        )
 
         await message.delete()
         await mainMsg.edit_text(
@@ -444,15 +478,7 @@ async def get_user_proof(message: Message, state: FSMContext):
         )
         await state.set_state(FSMSteps.WAIT_CHANGER_PROOF)
 
-    except Exception as e:
 
-        logging.exception(e)
-
-        await message.delete()
-        await mainMsg.edit_text(
-            text='data type is not provided, try again',
-            reply_markup = await user_kb.get_trouble_staff_contact()
-        )
 
 
 

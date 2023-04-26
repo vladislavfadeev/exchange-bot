@@ -9,6 +9,10 @@ aiogram = "*"
 environs = "*"
 httpx = "*"
 apscheduler = "==3.10.1"
+redis = "*"
+dill = "*"
+jsonpickle = "*"
+apscheduler-di = "*"
 
 [dev-packages]
 
