@@ -9,40 +9,49 @@ from aiogram import F
 from core.keyboards import changer_kb, home_kb
 from core.keyboards.callbackdata import HomeData
 from create_bot import dp, bot
-from core.keyboards.home_kb import user_home_button, user_home_inline_button
+from core.keyboards.home_kb import user_home_inline_button
 from core.api_actions.bot_api import SimpleAPI
-from core.utils import msg_maker, msg_var as msg
+from core.utils import msg_maker
+from core.utils import  msg_var as msg
 from core.utils.bot_fsm import FSMSteps
 from core.middlwares.routes import r    # Dataclass whith all api routes
 from datetime import date
 import os
 from core.utils.notifier import (
-    changer_notifier,
-    transfers_getter,
-    new_transfer_cheker
+    transfers_getter_changer
 )
 
 
-async def command_start(message: Message, state: FSMContext):
+async def command_start(
+        message: Message,
+        state: FSMContext,
+        apscheduler: AsyncIOScheduler
+):
     '''Handler ansver on command "/start"
     '''
     await message.delete()
     data = await state.get_data()
-    mainMsg = data.get('mainMsg')
+    mainMsg: Message = data.get('mainMsg')
     msg_list = data.get('messageList')
     await state.update_data(messageList=[])
 
     if mainMsg:
 
         try:
-            await mainMsg.delete()
+            await bot.delete_message(
+                mainMsg.chat.id,
+                mainMsg.message_id
+            )
         except:
             pass
         
         if msg_list:
             try:   
                 for i in msg_list:
-                    await i.delete()
+                    await bot.delete_message(
+                        i.chat.id,
+                        i.message_id
+                    )
             except:
                 pass
 
@@ -61,10 +70,11 @@ async def command_start(message: Message, state: FSMContext):
                 await state.set_state(FSMSteps.STUFF_INIT_STATE)
 
             else:
+                
                 mainMsg =  await bot.send_message(
                     message.from_user.id,
-                    text=msg.start_message, 
-                    reply_markup= await user_home_inline_button()
+                    text= await msg_maker.start_message(message.from_user.id),
+                    reply_markup= await user_home_inline_button(message.from_user.id)
                 )
             
             await state.update_data(
@@ -76,8 +86,8 @@ async def command_start(message: Message, state: FSMContext):
             
             mainMsg =  await bot.send_message(
                 message.from_user.id,
-                text=msg.start_message,
-                reply_markup= await user_home_inline_button()
+                text= await msg_maker.start_message(message.from_user.id),
+                reply_markup= await user_home_inline_button(message.from_user.id)
             )
             
             await state.update_data(mainMsg = mainMsg)
@@ -85,8 +95,8 @@ async def command_start(message: Message, state: FSMContext):
     else:
         mainMsg =  await bot.send_message(
             message.from_user.id,
-            text=msg.start_message, 
-            reply_markup= await user_home_inline_button()
+            text= await msg_maker.start_message(message.from_user.id), 
+            reply_markup= await user_home_inline_button(message.from_user.id)
         )
         await SimpleAPI.post(
             r.homeRoutes.userInit,
@@ -133,6 +143,12 @@ async def command_login(
                 pass
 
         elif response.status_code == 200:
+
+            getter_id = f'user_getter-{message.from_user.id}'
+            job_list: list = [job.id for job in apscheduler.get_jobs()]
+                
+            if getter_id in job_list:
+                apscheduler.pause_job(getter_id)
 
             if uncompleted_transfers is None:
                 await state.update_data(uncompleted_transfers = [])
@@ -181,28 +197,21 @@ async def command_login(
             await state.update_data(isStuff = True)
             await state.set_state(FSMSteps.STUFF_INIT_STATE)
             
-            # getter_id = f'getter-{message.from_user.id}'
+            getter_id = f'changer_getter-{message.from_user.id}'
+            job_list: list = apscheduler.get_jobs()
+            job_id_list: list = [job.id for job in job_list]
 
-            # apscheduler.add_job(
-            #     transfers_getter,
-            #     'interval',
-            #     minutes=1,
-            #     id = getter_id,
-            #     kwargs={
-            #         'changer_id': changer_id,
-            #     }
-            # )
+            if getter_id not in job_id_list:
 
-            cheker_job_id = f'cheker-{message.from_user.id}'
-            apscheduler.add_job(
-                new_transfer_cheker,
-                'interval',
-                seconds = 30,
-                id = cheker_job_id,
-                kwargs={
-                    'changer_id': changer_id,
-                }
-            )
+                apscheduler.add_job(
+                    transfers_getter_changer,
+                    'interval',
+                    minutes=1,
+                    id = getter_id,
+                    kwargs={
+                        'changer_id': changer_id,
+                    }
+                )
 
     elif isStuff:
         await message.delete()
@@ -250,8 +259,8 @@ async def command_logout(
 
         mainMsg =  await bot.send_message(
             message.from_user.id,
-            text=msg.start_message, 
-            reply_markup= await user_home_inline_button()
+            text= await msg_maker.start_message(message.from_user.id), 
+            reply_markup= await user_home_inline_button(message.from_user.id)
         )
         patch_data = {
             'online': False
@@ -266,10 +275,18 @@ async def command_logout(
         await state.update_data(mainMsg = mainMsg)
         await state.update_data(isStuff = False)
         await state.set_state(FSMSteps.USER_INIT_STATE)
+        
+        getter_id = f'user_getter-{message.from_user.id}'
+        job_list: list = [job.id for job in apscheduler.get_jobs()]
+            
+        if getter_id in job_list:
+            apscheduler.resume_job(getter_id)
 
-        # apscheduler.remove_job(f'getter-{message.from_user.id}')
-        # apscheduler.remove_job(f'notifier-{message.from_user.id}')
-        apscheduler.remove_job(f'cheker-{message.from_user.id}')
+        apscheduler.remove_job(f'changer_getter-{message.from_user.id}')
+        try:
+            apscheduler.remove_job(f'changer_notifier-{message.from_user.id}')
+        except:
+            pass
 
     else:
 
@@ -296,51 +313,52 @@ async def user_main_menu(
     data = await state.get_data()
     await state.update_data(messageList=[])
     msg_list = data.get('messageList')
+    mainMsg: Message = data.get('mainMsg')
+
+    if msg_list:
+        for i in msg_list:
+            i: Message
+            try:
+                await bot.delete_message(
+                    i.chat.id,
+                    i.message_id
+                )
+            except:
+                pass
 
     try:
-        
-        if msg_list:
-            for i in msg_list:
-                await i.delete()
+        await bot.delete_message(
+            mainMsg.chat.id,
+            mainMsg.message_id
+        )
+    except:
+        pass
+
+    try:
 
         if data.get('isStuff'):
 
             transfers = data.get('uncompleted_transfers')
-
-            if len(msg_list):
-                mainMsg = await bot.send_message(
-                    call.from_user.id,
-                    text = await msg_maker.staff_welcome(transfers),
-                    reply_markup = await changer_kb.staff_welcome_button(
-                        transfers
-                    )
+                
+            mainMsg = await bot.send_message(
+                call.from_user.id,
+                text = await msg_maker.staff_welcome(transfers),
+                reply_markup = await changer_kb.staff_welcome_button(
+                    transfers
                 )
-                await state.update_data(mainMsg = mainMsg)
-
-            else:
-                await call.message.edit_text(
-                    text = await msg_maker.staff_welcome(transfers),
-                    reply_markup = await changer_kb.staff_welcome_button(
-                        transfers
-                    )
-                )
+            )
+            await state.update_data(mainMsg = mainMsg)
             
             await state.set_state(FSMSteps.STUFF_INIT_STATE)
         
         else:
-            if len(msg_list):
-                mainMsg = await bot.send_message(
-                    call.from_user.id,
-                    text=msg.start_message, 
-                    reply_markup= await user_home_inline_button()
-                )
-                await state.update_data(mainMsg = mainMsg)
 
-            else:
-                await call.message.edit_text(
-                    text=msg.start_message, 
-                    reply_markup= await user_home_inline_button()
-                )
+            mainMsg = await bot.send_message(
+                call.from_user.id,
+                text= await msg_maker.start_message(call.from_user.id), 
+                reply_markup= await user_home_inline_button(call.from_user.id)
+            )
+            await state.update_data(mainMsg = mainMsg)
 
             await state.set_state(FSMSteps.USER_INIT_STATE)
         
@@ -361,8 +379,8 @@ async def user_main_menu(
 
         else:
             await call.message.edit_text(
-                text=msg.start_message, 
-                reply_markup= await user_home_inline_button()
+                text=await msg_maker.start_message(call.from_user.id),
+                reply_markup= await user_home_inline_button(call.from_user.id)
             )
             await state.set_state(FSMSteps.USER_INIT_STATE)
 

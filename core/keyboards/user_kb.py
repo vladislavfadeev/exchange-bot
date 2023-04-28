@@ -14,6 +14,7 @@ from core.keyboards.callbackdata import (
     StuffEditData,
     StuffOfficeData,
     TestData,
+    UserProofActions,
 )
 
 
@@ -207,3 +208,51 @@ async def get_trouble_staff_contact():
 
     return builder.as_markup()
 
+
+
+async def user_show_event_kb(event: dict):
+
+    event_id = event.get('id')
+    builder = InlineKeyboardBuilder()
+
+    actions = {
+        'user_transfer_accepted': '🤝 Подтвердить перевод',
+        'user_transfer_claims': '⚠️ Перевод не получил'
+    }
+
+    for key, value in actions.items():
+
+        builder.button(
+            text=value,
+            callback_data=UserProofActions(
+                action=key,
+                transferId=event_id
+            )
+
+        )
+    builder.adjust(1)
+
+    return builder.as_markup()
+
+
+async def final_transfer_stage():
+
+    contact = appSettings.botSetting.troubleStaffId
+    builder = InlineKeyboardBuilder()
+
+    builder.button(
+        text='👮🏻 Связаться с админом',
+        url= f'tg://user?id={contact}',
+        callback_data=TestData(
+            url= ''
+        )
+    )
+    builder.button(
+        text='↩ Вернуться на главную',
+        callback_data=HomeData(
+            action='cancel'
+        )
+    )
+    builder.adjust(1)
+
+    return builder.as_markup()

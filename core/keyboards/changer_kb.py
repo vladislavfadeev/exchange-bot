@@ -729,7 +729,14 @@ async def staff_show_transfer_detail_none_next(transfer_id):
             url= ''
         )
     )
-    
+    builder.button(
+        text = '↩ Вернуться',
+        callback_data=StuffOfficeData(
+            action= 'staff_show_transfers',
+        )
+    )
+    builder.adjust(1)
+
     return builder.as_markup()
 
 
@@ -755,5 +762,12 @@ async def staff_show_transfer_detail_accept(transfer_id):
             url= ''
         )
     )
+    builder.button(
+        text = '↩ Вернуться',
+        callback_data=StuffOfficeData(
+            action= 'staff_show_transfers',
+        )
+    )
+    builder.adjust(1)
     
     return builder.as_markup()

@@ -1,42 +1,61 @@
+from asyncio import events
 from aiogram.types import KeyboardButton
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.storage.base import StorageKey
 from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
-from core.keyboards.callbackdata import HomeData
+from core.keyboards.callbackdata import HomeData, UserProofActions
+from create_bot import dp, bot
 
 
-async def user_home_button():
-    '''Build RelyKeyboardButton for "/start" function.
+
+async def state_getter(id: int):
     '''
-    builder = ReplyKeyboardBuilder()
-    builder.add(KeyboardButton(text='Режим работы'))
-    builder.add(KeyboardButton(text='Справка'))
-    builder.add(KeyboardButton(text='Обменять валюту'))
-    builder.adjust(2, 1)
+    '''
+    state: FSMContext = FSMContext(
+        bot=bot,
+        storage=dp.storage,
+        key=StorageKey(
+            chat_id=id,
+            user_id=id,  
+            bot_id=bot.id
+        )
+    )
+    state_dict: dict = await state.get_data()
+    return state_dict
 
-    return builder.as_markup(
-        resize_keyboard=True,
-        input_field_placeholder='Выбери нужное тебе действие'
-    ) 
 
 
-async def user_home_inline_button():
+async def user_home_inline_button(id):
     '''Build InlineKeyboardButton for "/start" function.
     '''
+    data: dict = await state_getter(id)
+    events: list = data.get('user_events')
+    value: str = f'({len(events)})' if events else ''
+
     builder = InlineKeyboardBuilder()
 
-    data = {
+    action = {
         'info': 'Справка',
         'time': 'Режим работы',
         'change': 'Обменять валюту',
     }
 
-    for i in data.keys():
+    for i in action.keys():
         builder.button(
-            text=data[i],
+            text=action[i],
             callback_data=HomeData(
                 action=i
             )
         )
-    builder.adjust(2)
+
+    builder.button(
+        text = f'Мои события {value}',
+        callback_data = UserProofActions(
+            action = 'user_new_events',
+            transferId=0
+        )
+    )
+    builder.adjust(2, 1, 1)
 
     return builder.as_markup()
 

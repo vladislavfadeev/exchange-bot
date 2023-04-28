@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from datetime import datetime
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.fsm.context import FSMContext
 from aiogram.types.callback_query import CallbackQuery
@@ -9,6 +10,7 @@ from aiogram.types import Message
 from aiogram import F
 from core.keyboards import admin_kb, home_kb
 from core.middlwares.settigns import appSettings
+from core.utils.notifier import transfers_getter_user
 from create_bot import bot, dp
 from core.middlwares.routes import r    # Dataclass whith all api routes
 from core.utils import msg_maker, msg_var
@@ -24,11 +26,205 @@ from core.keyboards.callbackdata import (
     OfferData,
     SetBuyBankData,
     SetSellBankData,
+    UserProofActions,
 )
 from core.middlwares.exceptions import (
     MinAmountError,
     MaxAmountError,
 )
+
+
+
+async def new_user_event(
+        call: CallbackQuery,
+        state: FSMContext,
+        callback_data: UserProofActions
+):
+    '''
+    '''
+    data: dict = await state.get_data()
+    mainMsg: Message = data.get('mainMsg')
+    user_event: list = data.get('user_events')
+
+    if callback_data.action == 'user_new_events':
+
+        if user_event:
+
+            try:
+                await bot.delete_message(
+                    mainMsg.chat.id,
+                    mainMsg.message_id
+                )
+            except:
+                pass
+            
+            messageList = []
+
+            for event in user_event:
+
+                self_msg = await bot.send_message(
+                    call.from_user.id,
+                    text = await msg_maker.user_show_events(event),
+                    reply_markup = await user_kb.user_show_event_kb(event)
+                )
+                messageList.append(self_msg)
+
+            sep_msg = await bot.send_message(
+                call.from_user.id,
+                text = msg.separator,
+                reply_markup = await home_kb.user_back_home_inline_button()
+            )
+            messageList.append(sep_msg)
+
+            await state.update_data(messageList = messageList)
+
+        else:
+
+            await call.message.edit_text(
+                text = msg.user_empty_event,
+                reply_markup = await home_kb.user_back_home_inline_button()
+            )
+
+        await state.set_state(FSMSteps.GET_CHANGER_PROOF)
+    
+    elif callback_data.action == 'user_transfer_accepted':
+
+        messageList = data.get('messageList')       
+        transfer_id = callback_data.transferId
+
+        patch_data = {
+            'userAcceptDate': datetime.now(),
+            'isCompleted': True
+        }
+        await SimpleAPI.patch(
+            r.userRoutes.transactions,
+            transfer_id,
+            patch_data
+        )
+        new_event_list: list = [i for i in user_event if i['id'] != transfer_id]
+        await state.update_data(user_events = new_event_list)
+
+        if not new_event_list:
+
+            for i in messageList:
+                i: Message
+
+                try:
+                    await bot.delete_message(
+                        i.chat.id,
+                        i.message_id
+                    )
+                except:
+                    pass
+                #await call.answer(text=msg.user_transfer_claims_message, show_alert=True)
+
+            mainMsg = await bot.send_message(
+                call.from_user.id,
+                text= await msg_maker.start_message(call.from_user.id), 
+                reply_markup= await home_kb.user_home_inline_button(call.from_user.id)
+            )
+            await state.update_data(mainMsg = mainMsg)
+            await state.set_state(FSMSteps.USER_INIT_STATE)
+
+        else:
+
+            await bot.delete_message(
+                call.from_user.id,
+                call.message.message_id
+            )
+            await call.answer('Done!', show_alert=True)
+
+
+    elif callback_data.action == 'user_transfer_claims':
+
+        transfer_id = callback_data.transferId
+
+        transfer: dict = [i for i in user_event if i['id']==transfer_id][0]
+
+        new_event_list: list = [i for i in user_event if i['id'] != transfer_id]
+        await state.update_data(user_events = new_event_list)
+        messageList = data.get('messageList')
+
+        patch_data = {
+            'claims': True
+        }
+        await SimpleAPI.patch(
+            r.userRoutes.transactions,
+            transfer_id,
+            patch_data
+        )
+
+        await bot.send_message(
+            appSettings.botSetting.troubleStaffId,
+            text=f'Пользователь не принял перевод обменника, Заявка {transfer["id"]}',
+            reply_markup= await admin_kb.get_claim_contacts_toadmin(
+                call.from_user.id,
+                transfer['changer']
+            )
+        )
+        if transfer['userProofType'] == 'photo':
+            await bot.send_photo(
+                appSettings.botSetting.troubleStaffId,
+                photo= transfer['userProof'],
+                caption= f'Подтверждение пользователя. Заявка {transfer["id"]}'
+            )
+        elif transfer['userProofType'] == 'document':
+            await bot.send_document(
+                appSettings.botSetting.troubleStaffId,
+                document= transfer['userProof'],
+                caption= f'Подтверждение пользователя. Заявка {transfer["id"]}'
+            )
+
+        if transfer['changerProofType'] == 'photo':
+            await bot.send_photo(
+                appSettings.botSetting.troubleStaffId,
+                photo= transfer['changerProof'],
+                caption= f'Подтверждение обменника. Заявка {transfer["id"]}'
+            )
+        elif transfer['changerProofType'] == 'document':
+            await bot.send_document(
+                appSettings.botSetting.troubleStaffId,
+                document= transfer['changerProof'],
+                caption= f'Подтверждение обменника. Заявка {transfer["id"]}'
+            )
+
+        try:
+            await bot.delete_message(
+                call.message.chat.id,
+                call.message.message_id
+            )
+        except:
+            pass
+
+        await call.answer(text=msg.user_transfer_claims_message, show_alert=True)
+
+        # mainMsg = await bot.send_message(
+        #     call.from_user.id,
+        #     text = msg.user_transfer_claims_message,
+        #     reply_markup= await home_kb.user_back_home_inline_button()
+        # )
+        await state.update_data(mainMsg = mainMsg)
+
+        if not new_event_list:
+
+            for i in messageList:
+                i: Message
+
+                try:
+                    await bot.delete_message(
+                        i.chat.id,
+                        i.message_id
+                    )
+                except:
+                    pass
+
+            mainMsg = await bot.send_message(
+                call.from_user.id,
+                text= await msg_maker.start_message(call.from_user.id), 
+                reply_markup= await home_kb.user_home_inline_button(call.from_user.id)
+            )
+            await state.update_data(mainMsg = mainMsg)
+            await state.set_state(FSMSteps.USER_INIT_STATE)
 
 
 
@@ -395,7 +591,11 @@ async def use_old_buy_bank(
 
 
 
-async def get_user_proof(message: Message, state: FSMContext):
+async def get_user_proof(
+        message: Message,
+        state: FSMContext,
+        apscheduler: AsyncIOScheduler
+):
     '''
     '''
 
@@ -446,153 +646,37 @@ async def get_user_proof(message: Message, state: FSMContext):
             'userSendMoneyDate': datetime.now(),
             'userProofType': proofType,
             'userProof': fileId,
+            'isCompleted': False,
+            'claims': False,
+            'changerAccepted': False
         }
 
-        response = await SimpleAPI.post(
+        await SimpleAPI.post(
             r.userRoutes.transactions,
             data=data
-        )
-
-        changer_state: FSMContext = FSMContext(
-            bot=bot,
-            storage=dp.storage,
-            key=StorageKey(
-                chat_id=changerId,
-                user_id=changerId,  
-                bot_id=bot.id
-            )
-        )
-        ch_data: dict = await changer_state.get_data()
-        current_tr_list: list = ch_data.get('new_transfer')
-
-        current_tr_list.append(response.json())
-
-        await changer_state.update_data(
-            new_transfer = current_tr_list
         )
 
         await message.delete()
         await mainMsg.edit_text(
             text= await msg_maker.user_inform(buyAmount),
-            reply_markup = await user_kb.get_trouble_staff_contact()
+            reply_markup = await user_kb.final_transfer_stage()
         )
-        await state.set_state(FSMSteps.WAIT_CHANGER_PROOF)
+        await state.set_state(FSMSteps.USER_INIT_STATE)
 
+        getter_id = f'user_getter-{message.from_user.id}'
+        job_list: list = apscheduler.get_jobs()
+        job_id_list: list = [job.id for job in job_list]
 
-
-
-
-async def accept_or_decline_changer_transfer(
-        call: CallbackQuery,
-        state: FSMContext,
-        callback_data: ChangerProofActions
-    ):
-    '''
-    '''
-    response = await SimpleAPI.getDetails(
-        r.changerRoutes.transactions,
-        callback_data.transferId
-    )
-    transfer = response.json()
-    await state.update_data(transfer = transfer)
-    data = await state.get_data()
-    mainMsg = data['mainMsg']
-
-    if callback_data.action == 'accept':
-
-        await call.message.delete()
-        await bot.send_message(
-            transfer['changer'],
-            text= await msg_maker.accept_changer_transfer2(transfer['id'])
-        )
-        await mainMsg.edit_text(
-            text=msg.start_message, 
-            reply_markup= await home_kb.user_home_inline_button()
-        )
-        del_msg = await call.message.answer(
-            text= await msg_maker.accept_changer_transfer3(transfer['id']),
-        )
-        await asyncio.sleep(3)
-        try:
-            await del_msg.delete()
-        except:
-            pass
-
-        patchData = {
-            'userAcceptDate': datetime.now(),
-            'isCompleted': True
-        }
-        await SimpleAPI.patch(
-            r.userRoutes.transactions,
-            transfer['id'],
-            data=patchData
-        )
-        await state.set_state(None)
-
-    elif callback_data.action == 'decline':
-        
-        del_msg = await bot.send_message(
-            transfer['changer'],
-            text= await msg_maker.decline_changer_transfer(transfer['id'])
-        )
-        del_msg2 = await bot.send_message(
-            call.from_user.id,
-            text= await msg_maker.decline_changer_transfer2(transfer['id'])
-        )
-        await bot.send_message(
-            appSettings.botSetting.troubleStaffId,
-            text=f'Пользователь не принял перевод обменника, Заявка {transfer["id"]}',
-            reply_markup= await admin_kb.get_claim_contacts_toadmin(
-                call.from_user.id,
-                transfer['changer']
+        if getter_id not in job_id_list:
+            apscheduler.add_job(
+                transfers_getter_user,
+                'interval',
+                minutes=1,
+                id=getter_id,
+                kwargs = {
+                    'user_id':message.from_user.id,
+                }
             )
-        )
-        if transfer['userProofType'] == 'photo':
-            await bot.send_photo(
-                appSettings.botSetting.troubleStaffId,
-                photo= transfer['userProof'],
-                caption= f'Подтверждение пользователя. Заявка {transfer["id"]}'
-            )
-        elif transfer['userProofType'] == 'document':
-            await bot.send_document(
-                appSettings.botSetting.troubleStaffId,
-                document= transfer['userProof'],
-                caption= f'Подтверждение пользователя. Заявка {transfer["id"]}'
-            )
-
-        if transfer['changerProofType'] == 'photo':
-            await bot.send_photo(
-                appSettings.botSetting.troubleStaffId,
-                photo= transfer['changerProof'],
-                caption= f'Подтверждение обменника. Заявка {transfer["id"]}'
-            )
-        elif transfer['changerProofType'] == 'document':
-            await bot.send_document(
-                appSettings.botSetting.troubleStaffId,
-                document= transfer['changerProof'],
-                caption= f'Подтверждение обменника. Заявка {transfer["id"]}'
-            )
-
-        await asyncio.sleep(10)
-        try:
-            await call.message.delete()
-            await del_msg.delete()
-            await del_msg2.delete()
-            await mainMsg.edit_text(
-                text=msg.start_message, 
-                reply_markup= await home_kb.user_home_inline_button()
-            )
-        except:
-            pass
-
-    elif callback_data.action == 'admin':
-        await bot.send_message(
-            call.from_user.id,
-            text= await msg_maker.contact_to_admin()
-        )
-
-
-
 
 
 
@@ -656,6 +740,14 @@ async def register_callback_handler_user():
         SetBuyBankData.filter((F.setNew == False) & (F.id != 0))
     )
     dp.callback_query.register(
-        accept_or_decline_changer_transfer,
-        ChangerProofActions.filter()
+
+        new_user_event,
+        UserProofActions.filter(
+        
+            F.action.in_({
+                'user_new_events',
+                'user_transfer_accepted',
+                'user_transfer_claims'
+            })
+        )
     )

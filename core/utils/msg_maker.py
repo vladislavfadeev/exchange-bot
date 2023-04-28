@@ -1,6 +1,42 @@
-from email import message
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.storage.base import StorageKey
 from core.middlwares.routes import r    # Dataclass whith all api routes
 from core.api_actions.bot_api import SimpleAPI
+from create_bot import dp, bot
+
+
+
+async def state_getter(id: int):
+    '''
+    '''
+    state: FSMContext = FSMContext(
+        bot=bot,
+        storage=dp.storage,
+        key=StorageKey(
+            chat_id=id,
+            user_id=id,  
+            bot_id=bot.id
+        )
+    )
+    state_dict: dict = await state.get_data()
+    return state_dict
+
+
+
+async def start_message(id):
+    '''
+    '''
+    data: dict = await state_getter(id)
+    events: list = data.get('user_events')
+    insert: str = '<b>У вас новое сообщение!</b>\n\n' if events else ''
+    message = (
+        f'{insert}'
+        'Рады приветствовать вас!\n'
+        'У нас вы можете обменять валюту онлайн.\n\n'
+        'Для получения справки воспользуйтесь соответствующей кнопкой ниже.'
+    )
+
+    return message
 
 
 
@@ -539,6 +575,37 @@ async def staff_show_uncompleted_transfer_detail(transfer):
         'чек и нажмите появившуюся кнопку <b>"Подтвердить"!</b>\n'
         'В противном случае перевод не будет завершен\n'
         'что прямо влияет на вашу репутацию!\n'
+    )
+
+    return message
+
+
+
+async def user_show_events(user_event):
+
+    id = user_event['id']
+    sell_cur = user_event['sellCurrency']
+    sell_amount = user_event['sellAmount']
+    buy_amount = user_event['buyAmount']
+    rate = user_event['rate']
+
+    user_bank_name = user_event['userBank']['name']
+    user_bank_acc = user_event['userBank']['bankAccount']
+
+    message = (
+        f'\nПеревод id {id}\n'
+        f'💰 Обмен {sell_cur} 💰\n'
+        f'Курс{rate} - сумма {sell_amount} {sell_cur}\n'
+        f'💳 Банк, на который обменник сделал перевод:👇\n\n'
+        f'{user_bank_name}\n'
+        f'{user_bank_acc}\n\n'
+        f'Сумма: {buy_amount}\n\n'
+        '📢⚠️📢⚠️📢⚠️📢⚠️📢⚠️\n'
+        '<b>Убедительная просьба!</b>\n'
+        'Если вы получили деньги нажмите '
+        'на кнопку <b>"Подтвердить перевод"!</b>\n'
+        'В противном случае перевод не будет завершен'
+        'что прямо влияет на репутацию обменника!\n'
     )
 
     return message

@@ -1032,7 +1032,8 @@ async def staff_show_transfers(
         params = {
             'changer': call.from_user.id,
             'claims': False,
-            'isCompleted': False
+            'isCompleted': False,
+            'changerAcceptDate': None
         }
         response = await SimpleAPI.get(
             r.changerRoutes.transactions,
@@ -1041,7 +1042,8 @@ async def staff_show_transfers(
         uncompleted_transfers = response.json()
         await state.update_data(uncompleted_transfers = uncompleted_transfers)
 
-    if len(uncompleted_transfers):
+    if uncompleted_transfers is not None and\
+        len(uncompleted_transfers):
 
         await call.message.delete()
 
@@ -1074,10 +1076,11 @@ async def staff_show_transfers(
         
         await state.update_data(messageList = messageList)
 
-    else:
+    if uncompleted_transfers is None or\
+        len(uncompleted_transfers) == 0:                    # проверить корректность! 
         await call.message.edit_text(
             text = msg.staff_empty_uncompleted_transfers,
-            reply_markup = changer_kb.sfuff_cancel_button()
+            reply_markup = await changer_kb.sfuff_cancel_button()
         )
 
 
@@ -1093,27 +1096,24 @@ async def staff_show_transfer_detail(
     tr_id = callback_data.id
     transfers = data.get('uncompleted_transfers')
     transfer_detail = [i for i in transfers if i['id']==tr_id][0]
-    del_from_state = lambda x: [x.pop[i] for i in x if i['id']==tr_id]
-    # mainMsg = data.get('mainMsg')
     messageList = data.get('messageList')
     await state.update_data(ansvered_transfer_id = tr_id)
-    print(1)
-
-    # try:
-    #     await mainMsg.delete()
-    # except:
-    #     pass
 
     if callback_data.action == 'staff_transfers_get_detail':
-        print('get_detail')
 
         if messageList:
 
             for i in messageList:
+                i: Message
+
                 try:
-                    await i.delete()
+                    await bot.delete_message(
+                        i.chat.id,
+                        i.message_id
+                    )
                 except:
                     pass
+            await state.update_data(messageList = [])
 
         if transfer_detail['userProofType'] == 'photo':
 
@@ -1143,7 +1143,6 @@ async def staff_show_transfer_detail(
 
 
     elif callback_data.action == 'staff_transfer_claims':
-        print('claims')
 
         patch_data = {
             'claims': True
@@ -1199,7 +1198,7 @@ async def staff_show_transfer_detail(
             'changerAcceptDate': datetime.now(),
             'changerProofType': proof_type,
             'changerProof': proof_id,
-            'isCompleted': True,
+            'changerAccepted': True
         }
 
         await SimpleAPI.patch(
@@ -1207,7 +1206,13 @@ async def staff_show_transfer_detail(
             tr_id,
             patch_data
         )
-        await call.message.delete()
+        try:
+            await bot.delete_message(
+                call.message.chat.id,
+                call.message.message_id
+            )
+        except:
+            pass
 
         mainMsg = await bot.send_message(
             call.from_user.id,
@@ -1266,114 +1271,114 @@ async def staff_transfer_proof_getter(message: Message, state: FSMContext):
 
 
 
-async def accept_or_decline_user_transfer(
-        call: CallbackQuery,
-        state: FSMContext,
-        callback_data: UserProofActions):
-    '''
-    '''
-    response = await SimpleAPI.getDetails(
-        r.changerRoutes.transactions,
-        callback_data.transferId
-    )
-    transfer = response.json()
-    await state.update_data(transfer = transfer)
+# async def accept_or_decline_user_transfer(
+#         call: CallbackQuery,
+#         state: FSMContext,
+#         callback_data: UserProofActions):
+#     '''
+#     '''
+#     response = await SimpleAPI.getDetails(
+#         r.changerRoutes.transactions,
+#         callback_data.transferId
+#     )
+#     transfer = response.json()
+#     await state.update_data(transfer = transfer)
 
-    if callback_data.action == 'accept':
+#     if callback_data.action == 'accept':
 
-        tmpMessage = await bot.send_message(
-            transfer['user'],
-            text= await msg_maker.accept_user_transfer2()
-        )
-        await state.update_data(tmpMessage = tmpMessage)
-        await bot.send_message(
-            call.from_user.id,
-            text= await msg_maker.accept_changer_transfer(transfer),
-        )
+#         tmpMessage = await bot.send_message(
+#             transfer['user'],
+#             text= await msg_maker.accept_user_transfer2()
+#         )
+#         await state.update_data(tmpMessage = tmpMessage)
+#         await bot.send_message(
+#             call.from_user.id,
+#             text= await msg_maker.accept_changer_transfer(transfer),
+#         )
 
-        patchData = {
-            'changerAcceptDate': datetime.now()
-        }
-        await SimpleAPI.patch(
-            r.changerRoutes.transactions,
-            transfer['id'],
-            data=patchData
-        )
-        await state.set_state(FSMSteps.GET_CHANGER_PROOF)
+#         patchData = {
+#             'changerAcceptDate': datetime.now()
+#         }
+#         await SimpleAPI.patch(
+#             r.changerRoutes.transactions,
+#             transfer['id'],
+#             data=patchData
+#         )
+#         await state.set_state(FSMSteps.GET_CHANGER_PROOF)
 
-    elif callback_data.action == 'decline':
+#     elif callback_data.action == 'decline':
         
-        del_msg = await bot.send_message(
-            transfer['user'],
-            text= await msg_maker.decline_user_transfer()
-        )
+#         del_msg = await bot.send_message(
+#             transfer['user'],
+#             text= await msg_maker.decline_user_transfer()
+#         )
 
 
-    elif callback_data.action == 'admin':
-        await bot.send_message(
-            call.from_user.id,
-            text= await msg_maker.contact_to_admin()
-        )
+#     elif callback_data.action == 'admin':
+#         await bot.send_message(
+#             call.from_user.id,
+#             text= await msg_maker.contact_to_admin()
+#         )
 
 
-async def get_changer_proof(message: Message, state: FSMContext):
-    '''
-    '''
+# async def get_changer_proof(message: Message, state: FSMContext):
+#     '''
+#     '''
 
-    allData = await state.get_data()
-    transferId = allData['transfer']['id']
-    userId = allData['transfer']['user']
-    buyAmount = allData['transfer']['buyAmount']
-    tmpMessage = allData['tmpMessage']
-    await message.delete()
+#     allData = await state.get_data()
+#     transferId = allData['transfer']['id']
+#     userId = allData['transfer']['user']
+#     buyAmount = allData['transfer']['buyAmount']
+#     tmpMessage = allData['tmpMessage']
+#     await message.delete()
 
 
-    if message.photo:
+#     if message.photo:
 
-        fileId = message.photo[-1].file_id
-        proofType = 'photo'
+#         fileId = message.photo[-1].file_id
+#         proofType = 'photo'
 
-    elif message.document:
+#     elif message.document:
 
-        fileId = message.document.file_id
-        proofType = 'document'
+#         fileId = message.document.file_id
+#         proofType = 'document'
 
-    data = {
-        'changerSendMoneyDate': datetime.now(),
-        'changerProofType': proofType,
-        'changerProof': fileId,
-    }
+#     data = {
+#         'changerSendMoneyDate': datetime.now(),
+#         'changerProofType': proofType,
+#         'changerProof': fileId,
+#     }
 
-    response = await SimpleAPI.patch(
-        r.changerRoutes.transactions,
-        transferId,
-        data=data
-    )
+#     response = await SimpleAPI.patch(
+#         r.changerRoutes.transactions,
+#         transferId,
+#         data=data
+#     )
 
-    if proofType == 'photo':
+#     if proofType == 'photo':
 
-        await tmpMessage.delete()
-        await bot.send_photo(
-            userId,
-            photo = fileId,
-            caption= await msg_maker.accept_changer_proof(transferId),
-            reply_markup= await user_kb.accept_changer_transfer(response.json()['id'])
-        )
+#         await tmpMessage.delete()
+#         await bot.send_photo(
+#             userId,
+#             photo = fileId,
+#             caption= await msg_maker.accept_changer_proof(transferId),
+#             reply_markup= await user_kb.accept_changer_transfer(response.json()['id'])
+#         )
 
-    if proofType == 'document':
+#     if proofType == 'document':
 
-        await bot.send_document(
-            userId, 
-            document= fileId,
-            caption= await msg_maker.accept_changer_proof(),
-            reply_markup= await user_kb.accept_changer_transfer(response.json()['id'])
-        )
+#         await bot.send_document(
+#             userId, 
+#             document= fileId,
+#             caption= await msg_maker.accept_changer_proof(),
+#             reply_markup= await user_kb.accept_changer_transfer(response.json()['id'])
+#         )
 
-    await bot.send_message(
-        message.from_user.id,
-        text= await msg_maker.changer_inform2(transferId)
-        )
-    await state.set_state(FSMSteps.STUFF_INIT_STATE)
+#     await bot.send_message(
+#         message.from_user.id,
+#         text= await msg_maker.changer_inform2(transferId)
+#         )
+#     await state.set_state(FSMSteps.STUFF_INIT_STATE)
 
 
 
@@ -1386,12 +1391,12 @@ async def get_changer_proof(message: Message, state: FSMContext):
 async def register_message_handlers_changer():
     '''Registry message handlers there.
     '''
-    dp.message.register(
+    # dp.message.register(
 
-        get_changer_proof,
-        FSMSteps.GET_CHANGER_PROOF        
+    #     get_changer_proof,
+    #     FSMSteps.GET_CHANGER_PROOF        
     
-    )
+    # )
     dp.message.register(
     
         stuff_create_new_offer_rate,
@@ -1605,9 +1610,9 @@ async def register_callback_handler_changer():
         )
     )
 
-    dp.callback_query.register(
-        accept_or_decline_user_transfer,
-        UserProofActions.filter(),
-        FSMSteps.STUFF_INIT_STATE
-    )
+    # dp.callback_query.register(
+    #     accept_or_decline_user_transfer,
+    #     UserProofActions.filter(),
+    #     FSMSteps.STUFF_INIT_STATE
+    # )
 
