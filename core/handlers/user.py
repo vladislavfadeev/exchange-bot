@@ -20,7 +20,6 @@ from core.utils import msg_var as msg
 from core.keyboards import user_kb
 from core.keyboards.callbackdata import (
     AmountData,
-    ChangerProofActions,
     CurrencyData,
     HomeData,
     OfferData,
@@ -498,7 +497,7 @@ async def choose_buy_bank(
         banksName = await SimpleAPI.get(r.userRoutes.banksNameList)
 
         await call.message.edit_text(
-            text='Выберите банк из списка:',
+            text=msg.enter_user_bank_name,
             reply_markup= await user_kb.choose_bank_name_from_list(banksName)
         )
 
@@ -538,7 +537,7 @@ async def apply_new_buy_bank(message: Message, state: FSMContext):
             "name": bankName,
             "bankAccount": account,
             "owner": message.from_user.id,
-            "currency": "3",
+            "currency": "2",
             "isActive": True        
         }
 
@@ -608,7 +607,7 @@ async def get_user_proof(
     sellCurrency = allData['selectedOffer']['currency']
     sellAmount = allData['sellAmount']
     rate = allData['selectedOffer']['rate']
-    buyAmount = sellAmount * rate
+    buyAmount = round(sellAmount * rate)
     accountId = message.from_user.id
 
     try:

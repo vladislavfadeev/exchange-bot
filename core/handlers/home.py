@@ -34,6 +34,7 @@ async def command_start(
     mainMsg: Message = data.get('mainMsg')
     msg_list = data.get('messageList')
     await state.update_data(messageList=[])
+  
 
     if mainMsg:
 
@@ -48,6 +49,8 @@ async def command_start(
         if msg_list:
             try:   
                 for i in msg_list:
+                    i: Message
+
                     await bot.delete_message(
                         i.chat.id,
                         i.message_id
@@ -235,7 +238,7 @@ async def command_logout(
     '''
     '''
     data = await state.get_data()
-    mainMsg = data.get('mainMsg')
+    mainMsg: Message = data.get('mainMsg')
     messageList = data.get('messageList')
     isStuff = data.get('isStuff')
 
@@ -246,14 +249,22 @@ async def command_logout(
         if messageList:
             
             for i in messageList:
+                i: Message
+
                 try:
-                    await i.delete()
+                    await bot.delete_message(
+                        i.chat.id,
+                        i.message_id
+                    )
                 except:
                     pass
         
         if mainMsg:
             try:
-                await mainMsg.delete()
+                await bot.delete_message(
+                    mainMsg.chat.id,
+                    mainMsg.message_id
+                )
             except:
                 pass
 

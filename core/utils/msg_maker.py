@@ -28,6 +28,7 @@ async def start_message(id):
     '''
     data: dict = await state_getter(id)
     events: list = data.get('user_events')
+    changer_missed_event: list = data.get('changer_missed_event')
     insert: str = '<b>У вас новое сообщение!</b>\n\n' if events else ''
     message = (
         f'{insert}'
@@ -49,17 +50,31 @@ async def offer_list_msg_maker(offers):
 
         minAmount = 'Любая' if offer['minAmount'] == None else f"{offer['minAmount']} {offer['currency']}"
         maxAmount = 'Любая' if offer['maxAmount'] == None else f"{offer['maxAmount']} {offer['currency']}"
-        
-        banks = ''
-        for bName in offer['banks']:
-            banks += f'👉 {bName["name"]}\n'
+        score_data = offer['owner_score']
+        rbanks = ''
+        cbanks = ''
+        for rName in offer['refBanks']:
+            rbanks += f'👉 {rName["name"]}\n'
 
+        for cName in offer['currencyBanks']:
+            cbanks += f'👉 {cName["name"]}\n'
+
+        rbanks = "⚠️ Счет не назначен!" if not rbanks else rbanks
+        cbanks = "⚠️ Счет не назначен!" if not cbanks else cbanks
+        
         messages.append(
+            f'Рейтинг обменника:\n'
+            f'Средний перевод: {score_data["avg_amount"]} '
+            f'Всего обменов: {score_data["total_transactions"]}\n'
+            f'Среднее время ответа на перевод: {score_data["avg_time"]}\n\n'
             f'💰 Обмен {offer["currency"]} 💰\n'
             f'💸 {offer["bannerName"]} 💸\n'
-            f'💳 Банки, с которыми работает обменник:👇\n'
-            f'{banks}\n'
-            f'▶️ Минимальная сумма обмена: ⚡ {minAmount}\n'
+            f'💳 Банки, с которыми работает обменник:👇\n\n'
+            f'{offer["currency"]}\n'
+            f'{cbanks}'
+            f'\nMNT:\n'
+            f'{rbanks}\n'
+            f'\n▶️ Минимальная сумма обмена: ⚡ {minAmount}\n'
             f'▶️ Максимальная сумма обмена: ⚡ {maxAmount}\n\n'
             f'🔥 Курс в MNT: ⚡ {offer["rate"]} \n'
         )
@@ -106,7 +121,7 @@ async def max_amount_error_msg_maker(offerData):
 async def show_user_buy_amount(sellAmount, rate, currency):
 
     message = f'💸 Вы продаете: ⚡ {sellAmount} {currency}\
-                \n💰 Вы получаете: ⚡ {sellAmount * rate} MNT'
+                \n💰 Вы получаете: ⚡ {round(sellAmount * rate)} MNT'
     
     return message
 
@@ -334,8 +349,8 @@ async def staff_welcome(transfers):
 
     message = (
         f'{alert}'
-        f'💻 Личный кабинет.\n'
-        f'Приветствую вас!\n'
+        f'💻 Добро пожаловать в личный кабинет.\n'
+        f'Выберите пункт меню:\n'
         f'\n'
     )
 
@@ -380,9 +395,10 @@ async def stuff_create_new_offer_banks(currency, accounts = None):
     if accounts:
         acc_input = ''
 
-        for account in accounts:
-            currency = account['currency']['name']
-            acc_input += f'\n⚡ {account["name"]}\n {currency} {account["bankAccount"]}\n'
+        for key, value in accounts.items():
+            for i in value:
+                currency = i['currency']['name']
+                acc_input += f'\n⚡ {i["name"]}\n {currency} {i["bankAccount"]}\n'
 
         message = (
             f'💰 Выберите счет(а), которые будут\n'
@@ -465,16 +481,28 @@ async def staff_create_offer_show_final_text(post_data, banks_accounts):
 
     minAmount = 'Любая' if post_data['minAmount'] == None else f"{post_data['minAmount']} {post_data['currency']}"
     maxAmount = 'Любая' if post_data['maxAmount'] == None else f"{post_data['maxAmount']} {post_data['currency']}"
+    currency = post_data.get('currency')
     
-    banks = ''
-    for bName in banks_accounts:
-        banks += f'👉 {bName["name"]}\n'
+    rbanks = ''
+    cbanks = ''
+    for rName in banks_accounts['MNT']:
+        rbanks += f'👉 {rName["name"]}\n'
+
+    for cName in banks_accounts[currency]:
+        cbanks += f'👉 {cName["name"]}\n'
+
+    rbanks = "⚠️ Счет не назначен!" if not rbanks else rbanks
+    cbanks = "⚠️ Счет не назначен!" if not cbanks else cbanks
 
     message = (
+
         f'💰 Обмен {post_data["currency"]} 💰\n'
         f'💸 {post_data["bannerName"]} 💸\n'
         f'💳 Банки, с которыми работает обменник:👇\n'
-        f'{banks}\n'
+        f'{post_data["currency"]}\n'
+        f'{cbanks}'
+        f'MNT:\n'
+        f'{rbanks}\n'
         f'▶️ Минимальная сумма обмена: ⚡ {minAmount}\n'
         f'▶️ Максимальная сумма обмена: ⚡ {maxAmount}\n\n'
         f'🔥 Курс в MNT: ⚡ {post_data["rate"]} \n'
@@ -482,40 +510,64 @@ async def staff_create_offer_show_final_text(post_data, banks_accounts):
 
     return message
 
+
+
 async def staff_edit_offer_show(offer):
 
     minAmount = 'Любая' if offer['minAmount'] == None else f"{offer['minAmount']} {offer['currency']}"
     maxAmount = 'Любая' if offer['maxAmount'] == None else f"{offer['maxAmount']} {offer['currency']}"
-    
-    banks = ''
-    for bName in offer['banks']:
-        banks += f'👉 {bName["name"]}\n'
+    score_data = offer['owner_score']
+    rbanks = ''
+    cbanks = ''
+    for rName in offer['refBanks']:
+        rbanks += f'👉 {rName["name"]}\n'
+
+    for cName in offer['currencyBanks']:
+        cbanks += f'👉 {cName["name"]}\n'
+
+    rbanks = "⚠️ Счет не назначен!" if not rbanks else rbanks
+    cbanks = "⚠️ Счет не назначен!" if not cbanks else cbanks
 
     message = (
+        f'Рейтинг обменника:\n'
+        f'Средний перевод: {score_data["avg_amount"]} '
+        f'Всего обменов: {score_data["total_transactions"]}\n'
+        f'Среднее время ответа на перевод: {score_data["avg_time"]}\n\n'
         f'💰 Обмен {offer["currency"]} 💰\n'
         f'💸 {offer["bannerName"]} 💸\n'
         f'💳 Банки, с которыми работает обменник:👇\n'
-        f'{banks}\n'
+        f'{offer["currency"]}\n'
+        f'{cbanks}'
+        f'MNT:\n'
+        f'{rbanks}\n'
         f'▶️ Минимальная сумма обмена: ⚡ {minAmount}\n'
         f'▶️ Максимальная сумма обмена: ⚡ {maxAmount}\n\n'
         f'🔥 Курс в MNT: ⚡ {offer["rate"]} \n'
-        f'\n<b>Выберете что будем редактировать?</b>'
     )
 
     return message
 
 
+
+
 async def staff_show_editable_banks(banks):
-    
 
     messages = []
 
     for bank in banks:
 
+        alert_msg = ''
+        if bank.get('will_deactivate') and bank.get('isActive'):
+            alert_msg = (
+            'Если сделать данный счет не активным - с публикации '
+            f'снимется {bank.get("will_deactivate")} предложения на обмен.'
+            'Они отобразятся в разделе "Мои предложения">"Не активные"'
+            )
         messages.append(
             f'💰 Банк {bank["name"]} 💰\n\n'
-            f'💵 Валюта {bank["currency"]["name"]} 💵\\n'
-            f'💳 Валюта {bank["bankAccount"]} 💳\n\n'
+            f'💵 Валюта {bank["currency"]["name"]} 💵\n'
+            f'💳 Счет {bank["bankAccount"]} 💳\n\n'
+            f'{alert_msg}'
 
         )
 

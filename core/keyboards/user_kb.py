@@ -164,7 +164,13 @@ async def choose_bank_name_from_list(banksName):
                 bankName=bank['name']
             )
         )
-    builder.adjust(3)
+    builder.button(
+        text='↩ Вернуться на главную',
+        callback_data=HomeData(
+            action='cancel'
+        )
+    )
+    builder.adjust(2, 2, 2, 2, 2, 2, 1,1)
 
     return builder.as_markup()
 

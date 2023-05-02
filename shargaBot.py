@@ -1,5 +1,6 @@
 from core.middlwares.settigns import appSettings
 from aiogram.fsm.context import FSMContext
+from core.utils.notifier import main_msg_updater
 from core.middlwares.middleware import SchedulerMiddleware
 from core.handlers.home import (
     register_handlers_home,
@@ -25,9 +26,28 @@ logging.basicConfig(
             "(%(filename)s).%(funcName)s(%(lineno)d) - %(message)s"
 )
 
+
+async def updater_job():
+    job_list: list = scheduler.get_jobs()
+    job_id_list: list = [job.id for job in job_list]
+    main_msg_updater_id = 'main_msg_updater'
+
+    if main_msg_updater_id not in job_id_list:
+
+        scheduler.add_job(
+            main_msg_updater,
+            'cron',
+            day='1-7',
+            hour='2, 6',
+            id=main_msg_updater_id,
+        )
+
+
+
 async def register_middleware():
     
     dp.update.middleware.register(SchedulerMiddleware(scheduler))
+
 
 
 async def register_handlers():
@@ -40,16 +60,18 @@ async def register_handlers():
     await register_callback_handlers_home()
 
 
+
 async def start_bot():
 
     await register_middleware()
     await register_handlers()
-
+    
     try:
         
         scheduler.start()
+        await updater_job()
         await dp.start_polling(bot)
-
+        
     finally:
         # await bot.send_message(
         #     appSettings.botSetting.adminId,

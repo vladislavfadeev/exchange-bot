@@ -47,8 +47,13 @@ async def offer_menu(
     if messageList:
 
         for i in messageList:
+            i: Message
+
             try:
-                await i.delete()
+                await bot.delete_message(
+                    i.chat.id,
+                    i.message_id
+                )
             except:
                 pass
 
@@ -58,6 +63,8 @@ async def offer_menu(
         reply_markup = await changer_kb.stuff_offer_menu_buttons()
     )
     await state.update_data(mainMsg = mainMsg)
+    await state.update_data(editable_accounts = {})
+    await state.update_data(accounts = {})
 
 
 
@@ -241,7 +248,7 @@ async def stuff_create_new_offer_rate(message: Message, state: FSMContext):
             text= await msg_maker.stuff_show_rate(rate, currency),
             reply_markup= await changer_kb.staff_accept_new_rate()
         )
-        await state.set_state(FSMSteps.STUFF_OFFERS)    
+        await state.set_state(FSMSteps.STUFF_OFFERS_MENU)    
 
 
 
@@ -297,12 +304,19 @@ async def stuff_create_new_offer_banks(
 
         account_id = callback_data.id
         accounts = data.get('accounts')
+
+        if not accounts:
+            accounts = {}
+
+            for i in banks:
+                accounts[i['currency']['name']] = []
+                accounts[currency] = []
         
         await call.answer()
 
         for i in banks:
-            if i['id'] == account_id and i not in accounts:
-                accounts.append(i)
+            if i['id'] == account_id and (i not in accounts[currency] or accounts['MNT']):
+                accounts[i['currency']['name']].append(i)
                 
         await state.update_data(accounts = accounts)
 
@@ -314,15 +328,14 @@ async def stuff_create_new_offer_banks(
     elif callback_data.action == 'staff_will_set_amount':
 
         accounts = data.get('accounts')
-        currency_list = [i['currency']['name'] for i in accounts]
 
-        if currency not in currency_list:
+        if not accounts.get(currency):
             await call.answer(f'Вы не указали банк для {currency}', show_alert=True)
 
-        if 'MNT' not in currency_list:
+        if not accounts.get('MNT'):
             await call.answer(f'Вы не указали банк для MNT', show_alert=True)
 
-        elif currency in currency_list and 'MNT' in currency_list:
+        elif accounts.get(currency) and accounts.get('MNT'):
             await call.message.edit_text(
                 text = msg.staff_will_set_amount,
                 reply_markup= await changer_kb.staff_will_set_amount_kb()
@@ -425,7 +438,7 @@ async def stuff_create_new_offer_max_amount_setter(message: Message, state: FSMC
             text= await msg_maker.stuff_show_max_amount(amount, currency),
             reply_markup= await changer_kb.staff_accept_max_amount()
         )
-        await state.set_state(FSMSteps.STUFF_OFFERS)    
+        await state.set_state(FSMSteps.STUFF_OFFERS_MENU)    
     
 
 
@@ -484,7 +497,7 @@ async def stuff_create_new_offer_name_setter(message: Message, state: FSMContext
             text= await msg_maker.staff_show_offer_name(description),
             reply_markup= await changer_kb.staff_accept_offer_name()
         )
-        await state.set_state(FSMSteps.STUFF_OFFERS)    
+        await state.set_state(FSMSteps.STUFF_OFFERS_MENU)    
     
 
 
@@ -500,7 +513,8 @@ async def stuff_create_new_offer_final(
     currency = data.get('new_currency')
     rate = data.get('new_rate')
     banks_accounts = data.get('accounts')
-    banks_id = [i['id'] for i in banks_accounts]
+    refBanks_id = [i['id'] for i in banks_accounts.get('MNT')]
+    currencyBanks_id = [i['id'] for i in banks_accounts.get(currency)]
     min_amount = data.get('new_min_amount')
     max_amount = data.get('new_max_amount')
 
@@ -510,7 +524,8 @@ async def stuff_create_new_offer_final(
         'bannerName': offer_name,
         'currency': currency,
         'rate': rate,
-        'banks_id': banks_id,
+        'refBanks_id': refBanks_id,
+        'currencyBanks_id': currencyBanks_id,
         'minAmount': min_amount,
         'maxAmount': max_amount,
         'isActive': True,
@@ -567,11 +582,15 @@ async def staff_edit_offer(
     
     try:
 
-        for i in range(len(msg_list)):
-            await msg_list[i].delete()
+        for i in msg_list:
+            i: Message
 
-    except Exception as e:
-        logging.exception(e)
+            await bot.delete_message(
+                i.chat.id,
+                i.message_id
+            )
+    except:
+        pass
 
     else:
         mainMsg = await bot.send_message(
@@ -736,7 +755,7 @@ async def staff_edit_offer_values_checker(
                     )
                 )
 
-    await state.set_state(FSMSteps.STUFF_OFFERS)    
+    await state.set_state(FSMSteps.STUFF_OFFERS_MENU)    
 
 
 
@@ -797,13 +816,18 @@ async def staff_edit_offer_banks(
         accounts = data.get('editable_accounts')
         
         if not accounts:
-            accounts = []
+            accounts = {}
+
+            for i in banks:
+                accounts[i['currency']['name']] = []
+                accounts[currency] = []
 
         await call.answer()
 
         for i in banks:
-            if i['id'] == account_id and i not in accounts:
-                accounts.append(i)
+
+            if i['id'] == account_id and (i not in accounts[currency] or accounts['MNT']):
+                accounts[i['currency']['name']].append(i)
                 
         await state.update_data(editable_accounts = accounts)
 
@@ -815,20 +839,21 @@ async def staff_edit_offer_banks(
     elif callback_data.action == 'staff_edit_offer_banks_patch':
 
         accounts = data.get('editable_accounts')
-        currency_list = [i['currency']['name'] for i in accounts]
-
-        if currency not in currency_list:
+        
+        if not accounts.get(currency):
             await call.answer(f'Вы не указали банк для {currency}', show_alert=True)
 
-        if 'MNT' not in currency_list:
+        if not accounts.get('MNT'):
             await call.answer(f'Вы не указали банк для MNT', show_alert=True)
 
-        else:
-            new_banks_id = [i['id'] for i in accounts]
+        elif accounts.get(currency) and accounts.get('MNT'):
+            currency_banks = [i['id'] for i in accounts[currency]]
+            ref_banks = [i['id'] for i in accounts['MNT']]
             offer_id = data.get('editable_offer_id')
 
             patch_data = {
-                'banks_id': new_banks_id
+                'refBanks_id': ref_banks,
+                'currencyBanks_id': currency_banks
             }
             await SimpleAPI.patch(
                 r.changerRoutes.myOffers,
@@ -839,6 +864,7 @@ async def staff_edit_offer_banks(
                 text = msg.staff_edit_offer_banks_success,
                 reply_markup = await changer_kb.staff_edit_offer_succes_kb()
             )
+            await state.update_data()
 
 
 
@@ -858,7 +884,7 @@ async def staff_show_banks_account(                                # Додел�
     }
 
     response = await SimpleAPI.get(
-        r.changerRoutes.banks,
+        r.changerRoutes.banksCheker,
         params
     )
     banks_list = response.json()
@@ -888,7 +914,7 @@ async def staff_show_banks_account(                                # Додел�
                 text = messages[i],
                 reply_markup = await changer_kb.staff_edit_banks_accounts(
                     char['id'],
-                    isActive
+                    isActive,
                 )
             )
             if isLatest:
@@ -969,10 +995,40 @@ async def staff_edit_offer_values_setter(
         #     reply_markup = await changer_kb.staff_edit_offer_succes_kb()
         # )
     
-    elif callback_data.action in ['staff_publish_offer', 'staff_unpublish_offer']:
-        
+    elif callback_data.action == 'staff_publish_offer':
+
         offer_id = callback_data.id
-        value = True if callback_data.action == 'staff_publish_offer' else False
+        value = True
+        data = await state.get_data()
+        offer_data: dict = [i for i in data['offerList'] if i['id'] == offer_id][0]
+        
+        if offer_data.get('refBanks') and offer_data.get('currencyBanks'):
+
+            patch_data = {
+                'isActive': value
+            }
+            await SimpleAPI.patch(
+                r.changerRoutes.myOffers,
+                offer_id,
+                patch_data
+            )
+            await call.answer('Выполнено!', show_alert=True)
+
+            if len(message_list) > 1:
+                await call.message.delete()
+            
+            elif len(message_list) == 1:
+                await call.message.edit_text(
+                    text = await msg_maker.stuff_offer_menu(),
+                    reply_markup = await changer_kb.stuff_offer_menu_buttons()
+                )
+        else:
+            await call.answer('Не указан банк для одной из валют!', show_alert=True)
+
+    elif callback_data.action == 'staff_unpublish_offer':
+
+        offer_id = callback_data.id
+        value = False
 
         patch_data = {
             'isActive': value
@@ -999,6 +1055,8 @@ async def staff_edit_offer_values_setter(
         'staff_edit_banks_delete'
         ]:
 
+        data: dict = await state.get_data()
+
         account_id = callback_data.id
         action = callback_data.action
 
@@ -1013,7 +1071,13 @@ async def staff_edit_offer_values_setter(
         patch_data = {
             key: value
         }
+        await SimpleAPI.patch(
+            r.changerRoutes.banks,
+            f'{account_id}/status_setter',
+            patch_data
+        )
 
+        await call.answer('Done!', show_alert=True)
 
 
 async def staff_show_transfers(
@@ -1564,6 +1628,7 @@ async def register_callback_handler_changer():
                 'staff_delete_offer',
                 'staff_publish_offer',
                 'staff_unpublish_offer',
+                'staff_edit_banks_active',
                 'staff_edit_banks_inactive',
                 'staff_edit_banks_delete',
             })

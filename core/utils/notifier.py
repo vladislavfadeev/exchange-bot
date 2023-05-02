@@ -1,3 +1,4 @@
+from urllib import response
 from core.keyboards import changer_kb
 from core.utils import msg_maker
 from core.utils.bot_fsm import FSMSteps
@@ -113,46 +114,6 @@ async def transfers_getter_changer(changer_id: int):
 
 
 
-# async def user_notifier(user_id: int):
-#     '''
-#     '''
-#     state: FSMContext = FSMContext(
-#         bot=bot,
-#         storage=dp.storage,
-#         key=StorageKey(
-#             chat_id=user_id,
-#             user_id=user_id,  
-#             bot_id=bot.id
-#         )
-#     )
-
-#     data: dict = await state.get_data()
-#     current_state = await state.get_state()
-
-#     mainMsg: Message = data.get('mainMsg')
-#     user_events: dict = data.get('user_events')
-
-#     if user_events and \
-#         current_state == FSMSteps.USER_INIT_STATE:
-
-#         try:
-#             await bot.delete_message(
-#                 mainMsg.chat.id,
-#                 mainMsg.message_id
-#             )
-#         except:
-#             pass
-
-#         alertMsg: Message = await bot.send_message(
-#             mainMsg.chat.id,
-#             text= await msg_maker.start_message(user_id),
-#             reply_markup= await home_kb.user_home_inline_button(user_id)
-#         )
-#         await state.update_data(mainMsg = alertMsg)
-        # scheduler.remove_job(f'user_notifier-{user_id}')
-
-
-
 async def transfers_getter_user(user_id: int):
     '''
     '''
@@ -235,7 +196,41 @@ async def transfers_getter_user(user_id: int):
 
 
 
+async def main_msg_updater():
+    '''
+    '''
+    response = await SimpleAPI.get(r.homeRoutes.userInit)
+    id_list: list = response.json()
 
+    for id in id_list:
+        state: FSMContext = FSMContext(
+            bot=bot,
+            storage=dp.storage,
+            key=StorageKey(
+                chat_id=id,
+                user_id=id,  
+                bot_id=bot.id
+            )
+        )
+        data: dict = await state.get_data()
+        mainMsg: Message = data.get('mainMsg')
+
+        try:
+            await bot.delete_message(
+                mainMsg.chat.id,
+                mainMsg.message_id
+            )
+        except Exception as e:
+            logging.exception(e)
+
+        else:
+            mainMsg = await bot.send_message(
+                id,
+                text = mainMsg.text,
+                reply_markup = mainMsg.reply_markup,
+                disable_notification=True
+            )
+            await state.update_data(mainMsg = mainMsg)
 
 
 

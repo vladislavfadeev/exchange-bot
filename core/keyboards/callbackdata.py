@@ -1,4 +1,4 @@
-from sys import prefix
+import typing
 from aiogram.filters.callback_data import CallbackData
 
 
@@ -54,5 +54,4 @@ class StuffEditData(CallbackData, prefix='stuff_edit'):
     id: int
     action: str
     value: str
-
     

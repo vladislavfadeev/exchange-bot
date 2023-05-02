@@ -137,21 +137,23 @@ async def set_sell_currency_button():
     builder = InlineKeyboardBuilder()
 
     for curr in currency.json():
-        builder.button(
-            text=curr["name"],
-            callback_data=StuffEditData(
-                id=curr['id'],
-                value=curr['name'],
-                action='new_offer_currency'
+        if curr['name'] != 'MNT':
+
+            builder.button(
+                text=curr["name"],
+                callback_data=StuffEditData(
+                    id=curr['id'],
+                    value=curr['name'],
+                    action='new_offer_currency'
+                )
             )
-        )
     builder.button(
         text='↩ Отменить',
         callback_data= HomeData(
             action='cancel'
         )
     )
-    builder.adjust(3)
+    builder.adjust(2)
 
     return builder.as_markup()
 
