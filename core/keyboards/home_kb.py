@@ -1,23 +1,23 @@
 from asyncio import events
+from aiogram import Dispatcher
 from aiogram.types import KeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.base import StorageKey
 from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
 from core.keyboards.callbackdata import HomeData, UserProofActions
-from create_bot import dp, bot
 
 
 
-async def state_getter(id: int):
+async def state_getter(id: int, dp: Dispatcher):
     '''
     '''
     state: FSMContext = FSMContext(
-        bot=bot,
+        bot=dp.bot,
         storage=dp.storage,
         key=StorageKey(
             chat_id=id,
             user_id=id,  
-            bot_id=bot.id
+            bot_id=dp.bot.id
         )
     )
     state_dict: dict = await state.get_data()
@@ -25,10 +25,10 @@ async def state_getter(id: int):
 
 
 
-async def user_home_inline_button(id):
+async def user_home_inline_button(id: int, dp: Dispatcher):
     '''Build InlineKeyboardButton for "/start" function.
     '''
-    data: dict = await state_getter(id)
+    data: dict = await state_getter(id, dp)
     events: list = data.get('user_events')
     value: str = f'({len(events)})' if events else ''
 

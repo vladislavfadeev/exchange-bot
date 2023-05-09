@@ -1,21 +1,21 @@
+from aiogram import Dispatcher
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.base import StorageKey
 from core.middlwares.routes import r    # Dataclass whith all api routes
 from core.api_actions.bot_api import SimpleAPI
-from create_bot import dp, bot
 
 
 
-async def state_getter(id: int):
+async def state_getter(id: int, dp: Dispatcher):
     '''
     '''
     state: FSMContext = FSMContext(
-        bot=bot,
+        bot=dp.bot,
         storage=dp.storage,
         key=StorageKey(
             chat_id=id,
             user_id=id,  
-            bot_id=bot.id
+            bot_id=dp.bot.id
         )
     )
     state_dict: dict = await state.get_data()
@@ -23,10 +23,10 @@ async def state_getter(id: int):
 
 
 
-async def start_message(id):
+async def start_message(id: int, dp: Dispatcher):
     '''
     '''
-    data: dict = await state_getter(id)
+    data: dict = await state_getter(id, dp)
     events: list = data.get('user_events')
     changer_missed_event: list = data.get('changer_missed_event')
     insert: str = '<b>У вас новое сообщение!</b>\n\n' if events else ''

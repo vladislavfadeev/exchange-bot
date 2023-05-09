@@ -7,7 +7,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types.callback_query import CallbackQuery
 from aiogram.fsm.storage.base import StorageKey
 from aiogram.types import Message
-from aiogram import F, Bot
+from aiogram import F, Bot, Dispatcher
 from core.keyboards import admin_kb, home_kb
 from core.middlwares.settigns import appSettings
 from core.utils.notifier import transfers_getter_user
@@ -37,7 +37,8 @@ async def new_user_event(
         call: CallbackQuery,
         state: FSMContext,
         callback_data: UserProofActions,
-        bot: Bot
+        bot: Bot, 
+        dp: Dispatcher
 ):
     '''
     '''
@@ -119,8 +120,8 @@ async def new_user_event(
 
             mainMsg = await bot.send_message(
                 call.from_user.id,
-                text= await msg_maker.start_message(call.from_user.id), 
-                reply_markup= await home_kb.user_home_inline_button(call.from_user.id)
+                text= await msg_maker.start_message(call.from_user.id, dp), 
+                reply_markup= await home_kb.user_home_inline_button(call.from_user.id, dp)
             )
             await state.update_data(mainMsg = mainMsg)
             await state.set_state(FSMSteps.USER_INIT_STATE)
@@ -219,8 +220,8 @@ async def new_user_event(
 
             mainMsg = await bot.send_message(
                 call.from_user.id,
-                text= await msg_maker.start_message(call.from_user.id), 
-                reply_markup= await home_kb.user_home_inline_button(call.from_user.id)
+                text= await msg_maker.start_message(call.from_user.id, dp), 
+                reply_markup= await home_kb.user_home_inline_button(call.from_user.id, dp)
             )
             await state.update_data(mainMsg = mainMsg)
             await state.set_state(FSMSteps.USER_INIT_STATE)
