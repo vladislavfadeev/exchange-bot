@@ -1,4 +1,6 @@
 from urllib import response
+
+from aiogram import Dispatcher
 from core.keyboards import changer_kb
 from core.utils import msg_maker
 from core.utils.bot_fsm import FSMSteps
@@ -9,22 +11,22 @@ from core.middlwares.routes import r    # Dataclass whith all api routes
 from core.api_actions.bot_api import SimpleAPI
 from core.utils import msg_var as msg
 from core.keyboards import home_kb
-from create_bot import bot, dp, scheduler
+from create_bot import scheduler
 import logging
 
 
 
 
-async def changer_notifier(changer_id: int):
+async def changer_notifier(changer_id: int, dp: Dispatcher):
     '''
     '''
     state: FSMContext = FSMContext(
-        bot=bot,
+        bot=dp.bot,
         storage=dp.storage,
         key=StorageKey(
             chat_id=changer_id,
             user_id=changer_id,  
-            bot_id=bot.id
+            bot_id=dp.bot.id
         )
     )
 
@@ -38,14 +40,14 @@ async def changer_notifier(changer_id: int):
         current_state == FSMSteps.STUFF_INIT_STATE:
 
         try:
-            await bot.delete_message(
+            await dp.bot.delete_message(
                 mainMsg.chat.id,
                 mainMsg.message_id
             )
         except:
             pass
 
-        alertMsg: Message = await bot.send_message(
+        alertMsg: Message = await dp.bot.send_message(
             mainMsg.chat.id,
             text= await msg_maker.staff_welcome(
                 uncompleted_transfers
@@ -63,16 +65,16 @@ async def changer_notifier(changer_id: int):
 
 
 
-async def transfers_getter_changer(changer_id: int):
+async def transfers_getter_changer(changer_id: int, dp: Dispatcher):
     '''
     '''
     state: FSMContext = FSMContext(
-        bot=bot,
+        bot=dp.bot,
         storage=dp.storage,
         key=StorageKey(
             chat_id=changer_id,
             user_id=changer_id,  
-            bot_id=bot.id
+            bot_id=dp.bot.id
         )
     )
 
@@ -114,16 +116,16 @@ async def transfers_getter_changer(changer_id: int):
 
 
 
-async def transfers_getter_user(user_id: int):
+async def transfers_getter_user(user_id: int, dp: Dispatcher):
     '''
     '''
     state: FSMContext = FSMContext(
-        bot=bot,
+        bot=dp.bot,
         storage=dp.storage,
         key=StorageKey(
             chat_id=user_id,
             user_id=user_id,  
-            bot_id=bot.id
+            bot_id=dp.bot.id
         )
     )
     params = {
@@ -151,14 +153,14 @@ async def transfers_getter_user(user_id: int):
 
         if current_state == FSMSteps.USER_INIT_STATE:
             try:
-                await bot.delete_message(
+                await dp.bot.delete_message(
                     mainMsg.chat.id,
                     mainMsg.message_id
                 )
             except:
                 pass
 
-            alertMsg: Message = await bot.send_message(
+            alertMsg: Message = await dp.bot.send_message(
                 mainMsg.chat.id,
                 text= await msg_maker.start_message(user_id),
                 reply_markup= await home_kb.user_home_inline_button(user_id)
@@ -196,7 +198,7 @@ async def transfers_getter_user(user_id: int):
 
 
 
-async def main_msg_updater():
+async def main_msg_updater(dp: Dispatcher):
     '''
     '''
     response = await SimpleAPI.get(r.homeRoutes.userInit)
@@ -204,19 +206,19 @@ async def main_msg_updater():
 
     for id in id_list:
         state: FSMContext = FSMContext(
-            bot=bot,
+            bot=dp.bot,
             storage=dp.storage,
             key=StorageKey(
                 chat_id=id,
                 user_id=id,  
-                bot_id=bot.id
+                bot_id=dp.bot.id
             )
         )
         data: dict = await state.get_data()
         mainMsg: Message = data.get('mainMsg')
 
         try:
-            await bot.delete_message(
+            await dp.bot.delete_message(
                 mainMsg.chat.id,
                 mainMsg.message_id
             )
@@ -224,7 +226,7 @@ async def main_msg_updater():
             logging.exception(e)
 
         else:
-            mainMsg = await bot.send_message(
+            mainMsg = await dp.bot.send_message(
                 id,
                 text = mainMsg.text,
                 reply_markup = mainMsg.reply_markup,
@@ -239,145 +241,145 @@ async def main_msg_updater():
 
 
 
-async def user_notifier_old(user_id: int):
-    '''
-    '''
-    state: FSMContext = FSMContext(
-        bot=bot,
-        storage=dp.storage,
-        key=StorageKey(
-            chat_id=user_id,
-            user_id=user_id,  
-            bot_id=bot.id
-        )
-    )
-    data: dict = await state.get_data()
-    user_event: list = data.get('user_event')
-    new_user_event: list = data.get('new_user_event')
-    mainMsg: Message = data.get('mainMsg')
+# async def user_notifier_old(user_id: int):
+#     '''
+#     '''
+#     state: FSMContext = FSMContext(
+#         bot=bot,
+#         storage=dp.storage,
+#         key=StorageKey(
+#             chat_id=user_id,
+#             user_id=user_id,  
+#             bot_id=bot.id
+#         )
+#     )
+#     data: dict = await state.get_data()
+#     user_event: list = data.get('user_event')
+#     new_user_event: list = data.get('new_user_event')
+#     mainMsg: Message = data.get('mainMsg')
 
-    if new_user_event is not None and\
-        len(new_user_event):
+#     if new_user_event is not None and\
+#         len(new_user_event):
 
-        current_state: FSMSteps = await state.get_state()
+#         current_state: FSMSteps = await state.get_state()
 
-        for event in new_user_event:
-            if event not in user_event:
-                user_event.append(event)
+#         for event in new_user_event:
+#             if event not in user_event:
+#                 user_event.append(event)
 
-        await state.update_data(user_event = user_event)
+#         await state.update_data(user_event = user_event)
 
-        if current_state == FSMSteps.USER_INIT_STATE:
+#         if current_state == FSMSteps.USER_INIT_STATE:
 
-            await bot.delete_message(
-                mainMsg.chat.id,
-                mainMsg.message_id
-            )
-            alertMsg = bot.send_message(
-                user_id,
-                text = msg.start_message,
-                reply_markup = await home_kb.user_home_inline_button(user_id)
-            )
-            await state.update_data(mainMsg = alertMsg)
-
-
-
-async def changer_notifier_old(changer_id: int):
-    '''
-    '''
-    state: FSMContext = FSMContext(
-        bot=bot,
-        storage=dp.storage,
-        key=StorageKey(
-            chat_id=changer_id,
-            user_id=changer_id,  
-            bot_id=bot.id
-        )
-    )
-
-    allowed_state = [
-        FSMSteps.STAFF_WAITER,
-        FSMSteps.STUFF_INIT_STATE,
-        FSMSteps.STUFF_OFFERS_MENU
-    ]
-
-    data = await state.get_data()
-    current_state = await state.get_state()
-
-    mainMsg: Message = data.get('mainMsg')
-    uncompleted_transfers = data.get('uncompleted_transfers')
-
-    if uncompleted_transfers:
-
-        if current_state == FSMSteps.STUFF_INIT_STATE:
-
-            await bot.delete_message(
-                mainMsg.chat.id,
-                mainMsg.message_id
-            )
-
-            alertMsg = await bot.send_message(
-                mainMsg.chat.id,
-                text= await msg_maker.staff_welcome(
-                    uncompleted_transfers
-                ),
-                reply_markup= await changer_kb.staff_welcome_button(
-                    uncompleted_transfers
-                )
-            )
-            await state.update_data(mainMsg = alertMsg)
-
-    elif not uncompleted_transfers:
-
-        notifier_id = data.get('notifier_id')
-        scheduler.remove_job(notifier_id)
+#             await bot.delete_message(
+#                 mainMsg.chat.id,
+#                 mainMsg.message_id
+#             )
+#             alertMsg = bot.send_message(
+#                 user_id,
+#                 text = msg.start_message,
+#                 reply_markup = await home_kb.user_home_inline_button(user_id)
+#             )
+#             await state.update_data(mainMsg = alertMsg)
 
 
 
+# async def changer_notifier_old(changer_id: int):
+#     '''
+#     '''
+#     state: FSMContext = FSMContext(
+#         bot=bot,
+#         storage=dp.storage,
+#         key=StorageKey(
+#             chat_id=changer_id,
+#             user_id=changer_id,  
+#             bot_id=bot.id
+#         )
+#     )
 
-async def changer_transfer_cheker(changer_id: int):
-    '''
-    '''
-    state: FSMContext = FSMContext(
-        bot=bot,
-        storage=dp.storage,
-        key=StorageKey(
-            chat_id=changer_id,
-            user_id=changer_id,
-            bot_id=bot.id
-        )
-    )
-    data: dict = await state.get_data()
-    new_transfer: list = data.get('new_transfer')
-    uncompleted_transfers: list = data.get('uncompleted_transfers')
+#     allowed_state = [
+#         FSMSteps.STAFF_WAITER,
+#         FSMSteps.STUFF_INIT_STATE,
+#         FSMSteps.STUFF_OFFERS_MENU
+#     ]
 
-    if new_transfer is not None and \
-        len(new_transfer):
+#     data = await state.get_data()
+#     current_state = await state.get_state()
 
-        for tr in new_transfer:
-            if tr not in uncompleted_transfers:
-                uncompleted_transfers.append(tr)
+#     mainMsg: Message = data.get('mainMsg')
+#     uncompleted_transfers = data.get('uncompleted_transfers')
+
+#     if uncompleted_transfers:
+
+#         if current_state == FSMSteps.STUFF_INIT_STATE:
+
+#             await bot.delete_message(
+#                 mainMsg.chat.id,
+#                 mainMsg.message_id
+#             )
+
+#             alertMsg = await bot.send_message(
+#                 mainMsg.chat.id,
+#                 text= await msg_maker.staff_welcome(
+#                     uncompleted_transfers
+#                 ),
+#                 reply_markup= await changer_kb.staff_welcome_button(
+#                     uncompleted_transfers
+#                 )
+#             )
+#             await state.update_data(mainMsg = alertMsg)
+
+#     elif not uncompleted_transfers:
+
+#         notifier_id = data.get('notifier_id')
+#         scheduler.remove_job(notifier_id)
+
+
+
+
+# async def changer_transfer_cheker(changer_id: int):
+#     '''
+#     '''
+#     state: FSMContext = FSMContext(
+#         bot=bot,
+#         storage=dp.storage,
+#         key=StorageKey(
+#             chat_id=changer_id,
+#             user_id=changer_id,
+#             bot_id=bot.id
+#         )
+#     )
+#     data: dict = await state.get_data()
+#     new_transfer: list = data.get('new_transfer')
+#     uncompleted_transfers: list = data.get('uncompleted_transfers')
+
+#     if new_transfer is not None and \
+#         len(new_transfer):
+
+#         for tr in new_transfer:
+#             if tr not in uncompleted_transfers:
+#                 uncompleted_transfers.append(tr)
         
-        notifier_id = f'notifier-{changer_id}'
-        job_list = scheduler.get_jobs()
-        job_id_list = [job.id for job in job_list]
-        print(notifier_id)
-        print(job_id_list)
+#         notifier_id = f'notifier-{changer_id}'
+#         job_list = scheduler.get_jobs()
+#         job_id_list = [job.id for job in job_list]
+#         print(notifier_id)
+#         print(job_id_list)
 
-        if notifier_id not in job_id_list:
+#         if notifier_id not in job_id_list:
 
-            scheduler.add_job(
-                changer_notifier,
-                'interval',
-                minutes = 5,
-                id = notifier_id,
-                kwargs = {
-                    'changer_id': changer_id
-                }
-            )
-            await state.update_data(notifier_id = notifier_id)
+#             scheduler.add_job(
+#                 changer_notifier,
+#                 'interval',
+#                 minutes = 5,
+#                 id = notifier_id,
+#                 kwargs = {
+#                     'changer_id': changer_id
+#                 }
+#             )
+#             await state.update_data(notifier_id = notifier_id)
 
-        await state.update_data(new_transfer = [])
-        await state.update_data(
-            uncompleted_transfers = uncompleted_transfers
-        )
+#         await state.update_data(new_transfer = [])
+#         await state.update_data(
+#             uncompleted_transfers = uncompleted_transfers
+#         )

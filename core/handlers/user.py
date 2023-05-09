@@ -7,11 +7,10 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types.callback_query import CallbackQuery
 from aiogram.fsm.storage.base import StorageKey
 from aiogram.types import Message
-from aiogram import F
+from aiogram import F, Bot
 from core.keyboards import admin_kb, home_kb
 from core.middlwares.settigns import appSettings
 from core.utils.notifier import transfers_getter_user
-from create_bot import bot, dp
 from core.middlwares.routes import r    # Dataclass whith all api routes
 from core.utils import msg_maker, msg_var
 from core.api_actions.bot_api import SimpleAPI
@@ -37,7 +36,8 @@ from core.middlwares.exceptions import (
 async def new_user_event(
         call: CallbackQuery,
         state: FSMContext,
-        callback_data: UserProofActions
+        callback_data: UserProofActions,
+        bot: Bot
 ):
     '''
     '''
@@ -231,7 +231,8 @@ async def new_user_event(
 async def start_change(
         call: CallbackQuery,
         state: FSMContext,
-        callback_data: HomeData
+        callback_data: HomeData,
+        bot: Bot
 ):
     '''Handler is start user change currency process.
     React on "Обменять валюту" in "FSMSteps.INIT_STATE"
@@ -266,7 +267,8 @@ async def start_change(
 async def show_offer(
         call: CallbackQuery, 
         state: FSMContext,
-        callback_data: CurrencyData
+        callback_data: CurrencyData,
+        bot: Bot
 ):
     '''Show all available offers for the selected currency
     '''
@@ -332,7 +334,8 @@ async def show_offer(
 async def set_amount(
         call: CallbackQuery,
         state:FSMContext,
-        callback_data: OfferData
+        callback_data: OfferData,
+        bot: Bot
     ):
     '''
     '''
@@ -680,7 +683,7 @@ async def get_user_proof(
 
 
 
-async def register_message_handlers_user():
+async def register_message_handlers_user(dp):
     '''Registry message handlers there.
     '''
     dp.message.register(
@@ -705,7 +708,7 @@ async def register_message_handlers_user():
     )
 
 
-async def register_callback_handler_user():
+async def register_callback_handler_user(dp):
     '''Register callback_querry handlers there.
     '''
     dp.callback_query.register(

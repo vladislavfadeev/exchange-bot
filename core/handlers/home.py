@@ -5,10 +5,9 @@ from aiogram.fsm.context import FSMContext
 from aiogram.filters import Command
 from aiogram.types import Message
 from aiogram.types.callback_query import CallbackQuery
-from aiogram import F
+from aiogram import F, Bot, Dispatcher
 from core.keyboards import changer_kb, home_kb
 from core.keyboards.callbackdata import HomeData
-from create_bot import dp, bot
 from core.keyboards.home_kb import user_home_inline_button
 from core.api_actions.bot_api import SimpleAPI
 from core.utils import msg_maker
@@ -25,7 +24,8 @@ from core.utils.notifier import (
 async def command_start(
         message: Message,
         state: FSMContext,
-        apscheduler: AsyncIOScheduler
+        apscheduler: AsyncIOScheduler,
+        bot: Bot
 ):
     '''Handler ansver on command "/start"
     '''
@@ -34,7 +34,14 @@ async def command_start(
     mainMsg: Message = data.get('mainMsg')
     msg_list = data.get('messageList')
     await state.update_data(messageList=[])
-  
+
+    await SimpleAPI.post(
+        r.homeRoutes.userInit,
+        {
+            'tg': message.from_user.id,
+            "isActive": True
+        }
+    )  
 
     if mainMsg:
 
@@ -101,13 +108,6 @@ async def command_start(
             text= await msg_maker.start_message(message.from_user.id), 
             reply_markup= await user_home_inline_button(message.from_user.id)
         )
-        await SimpleAPI.post(
-            r.homeRoutes.userInit,
-            {
-                'tg': message.from_user.id,
-                "isActive": True
-            }
-        )
         await state.update_data(mainMsg = mainMsg)
         await state.set_state(FSMSteps.USER_INIT_STATE)
 
@@ -116,7 +116,8 @@ async def command_start(
 async def command_login(
         message: Message,
         state: FSMContext,
-        apscheduler: AsyncIOScheduler
+        apscheduler: AsyncIOScheduler,
+        bot: Bot
 ):
     '''Handler ansver on command "/login"
     '''
@@ -233,7 +234,8 @@ async def command_login(
 async def command_logout(
         message: Message,
         state: FSMContext,
-        apscheduler: AsyncIOScheduler
+        apscheduler: AsyncIOScheduler,
+        bot: Bot
 ):
     '''
     '''
@@ -317,7 +319,8 @@ async def command_logout(
 async def user_main_menu(
         call: CallbackQuery,
         state: FSMContext,
-        callback_data: HomeData
+        callback_data: HomeData,
+        bot: Bot
 ):
     ''' Show "main" message
     '''
@@ -424,7 +427,7 @@ async def work_time(
 
 
 
-async def del_not_handled_message(message: Message):
+async def del_not_handled_message(message: Message, bot: Bot):
 
     bill = message.text
     await message.delete()
@@ -458,7 +461,7 @@ async def msg_dumps(message: Message, state: FSMContext, apscheduler: AsyncIOSch
 
 
 
-async def register_handlers_home():
+async def register_handlers_home(dp: Dispatcher):
     '''Registry handlers there.
     '''
     dp.message.register(
@@ -480,7 +483,7 @@ async def register_handlers_home():
 
 
 
-async def register_callback_handlers_home():
+async def register_callback_handlers_home(dp: Dispatcher):
     '''
     '''
     dp.callback_query.register(

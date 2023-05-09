@@ -25,15 +25,15 @@ jobstores = {
 }
 
 # bot = Bot(token = os.getenv('TOKEN'))
-bot = Bot(
-    token = appSettings.botSetting.botToken,
-    parse_mode=ParseMode.HTML,
-)
+# bot = Bot(
+#     token = appSettings.botSetting.botToken,
+#     parse_mode=ParseMode.HTML,
+# )
 
-bot.session.json_loads = jsonpickle.loads
-bot.session.json_dumps = jsonpickle.dumps
+# bot.session.json_loads = jsonpickle.loads
+# bot.session.json_dumps = jsonpickle.dumps
 
-dp = Dispatcher(storage=storage)
+# dp = Dispatcher(storage=storage)
 
 scheduler = ContextSchedulerDecorator(AsyncIOScheduler(jobstores=jobstores))
 

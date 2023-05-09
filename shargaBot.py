@@ -1,6 +1,7 @@
-from core.middlwares.settigns import appSettings
-from aiogram.fsm.context import FSMContext
+from aiogram import Bot, Dispatcher
+from aiogram.enums.parse_mode import ParseMode
 from core.utils.notifier import main_msg_updater
+from core.middlwares.settigns import appSettings
 from core.middlwares.middleware import SchedulerMiddleware
 from core.handlers.home import (
     register_handlers_home,
@@ -14,9 +15,10 @@ from core.handlers.changers import (
     register_message_handlers_changer,
     register_callback_handler_changer
 )
-from create_bot import bot, dp, scheduler
+from create_bot import scheduler, jobstores, storage
 import asyncio
 import logging
+import jsonpickle
 
 
 
@@ -44,27 +46,39 @@ async def updater_job():
 
 
 
-async def register_middleware():
+async def register_middleware(dp: Dispatcher):
     
     dp.update.middleware.register(SchedulerMiddleware(scheduler))
 
 
 
-async def register_handlers():
+async def register_handlers(dp: Dispatcher):
 
-    await register_message_handlers_user()
-    await register_callback_handler_user()
-    await register_message_handlers_changer()
-    await register_callback_handler_changer()
-    await register_handlers_home()
-    await register_callback_handlers_home()
+    await register_message_handlers_user(dp)
+    await register_callback_handler_user(dp)
+    await register_message_handlers_changer(dp)
+    await register_callback_handler_changer(dp)
+    await register_handlers_home(dp)
+    await register_callback_handlers_home(dp)
 
 
 
-async def start_bot():
+async def main():
+    
+    bot = Bot(
+    token = appSettings.botSetting.botToken,
+    parse_mode=ParseMode.HTML,
+    )
+    dp = Dispatcher(storage=storage)
 
-    await register_middleware()
-    await register_handlers()
+    await register_middleware(dp)
+    await register_handlers(dp)
+
+    bot.session.json_loads = jsonpickle.loads
+    bot.session.json_dumps = jsonpickle.dumps
+
+    scheduler.ctx.add_instance(bot, declared_class=Bot)
+    scheduler.ctx.add_instance(dp, declared_class=Dispatcher)
     
     try:
         
@@ -82,7 +96,7 @@ async def start_bot():
 
 
 if __name__ == '__main__':
-    asyncio.run(start_bot())
+    asyncio.run(main())
 
 
 

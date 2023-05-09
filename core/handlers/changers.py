@@ -5,8 +5,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.fsm.context import FSMContext
 from aiogram.types.callback_query import CallbackQuery
 from aiogram.types import Message
-from aiogram import F
-from create_bot import bot, dp
+from aiogram import F, Bot, Dispatcher
 from core.middlwares.routes import r    # Dataclass whith all api routes
 from core.utils import msg_maker
 from core.api_actions.bot_api import SimpleAPI
@@ -30,7 +29,8 @@ from core.keyboards.callbackdata import (
 async def offer_menu(
         call: CallbackQuery,
         state: FSMContext,
-        callback_data: StuffOfficeData
+        callback_data: StuffOfficeData,
+        bot: Bot
 ):
     '''
     '''
@@ -71,7 +71,8 @@ async def offer_menu(
 async def offer_menu_give_result(
         call: CallbackQuery,
         state: FSMContext,
-        callback_data: StuffOfficeData
+        callback_data: StuffOfficeData,
+        bot: Bot
 ):
     '''
     '''
@@ -563,7 +564,8 @@ async def stuff_create_new_offer_final(
 async def staff_edit_offer(
         call: CallbackQuery,
         state: FSMContext,
-        callback_data: StuffEditData
+        callback_data: StuffEditData,
+        bot: Bot
 ):
     '''
     '''
@@ -871,7 +873,8 @@ async def staff_edit_offer_banks(
 async def staff_show_banks_account(                                # Доделать после проработки проверки!!!!!
         call: CallbackQuery,
         state: FSMContext,
-        callback_data: StuffOfficeData
+        callback_data: StuffOfficeData,
+        bot: Bot
 ):
     ''' 
     '''
@@ -1083,7 +1086,8 @@ async def staff_edit_offer_values_setter(
 async def staff_show_transfers(
         call: CallbackQuery,
         state: FSMContext,
-        callback_data: StuffEditData
+        callback_data: StuffEditData,
+        bot: Bot
 ):
     '''
     '''
@@ -1152,7 +1156,8 @@ async def staff_show_transfers(
 async def staff_show_transfer_detail(
         call: CallbackQuery,
         state: FSMContext,
-        callback_data: StuffEditData
+        callback_data: StuffEditData,
+        bot: Bot
 ):
     '''
     '''
@@ -1290,7 +1295,7 @@ async def staff_show_transfer_detail(
 
 
 
-async def staff_transfer_proof_getter(message: Message, state: FSMContext):
+async def staff_transfer_proof_getter(message: Message, state: FSMContext, bot: Bot):
     '''
     '''
     await message.delete()
@@ -1452,7 +1457,7 @@ async def staff_transfer_proof_getter(message: Message, state: FSMContext):
 
 
 
-async def register_message_handlers_changer():
+async def register_message_handlers_changer(dp: Dispatcher):
     '''Registry message handlers there.
     '''
     # dp.message.register(
@@ -1506,7 +1511,7 @@ async def register_message_handlers_changer():
 
 
 
-async def register_callback_handler_changer():
+async def register_callback_handler_changer(dp: Dispatcher):
     '''Register callback_querry handlers there.
     '''
 
