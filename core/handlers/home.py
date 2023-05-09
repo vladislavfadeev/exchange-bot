@@ -1,6 +1,5 @@
 import asyncio
 import logging
-from winreg import DisableReflectionKey
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import Command
@@ -85,8 +84,8 @@ async def command_start(
                 
                 mainMsg =  await bot.send_message(
                     message.from_user.id,
-                    text= await msg_maker.start_message(message.from_user.id, dp),
-                    reply_markup= await user_home_inline_button(message.from_user.id, dp)
+                    text= await msg_maker.start_message(message.from_user.id, bot, dp),
+                    reply_markup= await user_home_inline_button(message.from_user.id, bot, dp)
                 )
             
             await state.update_data(
@@ -98,8 +97,8 @@ async def command_start(
             
             mainMsg =  await bot.send_message(
                 message.from_user.id,
-                text= await msg_maker.start_message(message.from_user.id, dp),
-                reply_markup= await user_home_inline_button(message.from_user.id, dp)
+                text= await msg_maker.start_message(message.from_user.id, bot, dp),
+                reply_markup= await user_home_inline_button(message.from_user.id, bot, dp)
             )
             
             await state.update_data(mainMsg = mainMsg)
@@ -107,8 +106,8 @@ async def command_start(
     else:
         mainMsg =  await bot.send_message(
             message.from_user.id,
-            text= await msg_maker.start_message(message.from_user.id, dp), 
-            reply_markup= await user_home_inline_button(message.from_user.id, dp)
+            text= await msg_maker.start_message(message.from_user.id, bot, dp), 
+            reply_markup= await user_home_inline_button(message.from_user.id, bot, dp)
         )
         await state.update_data(mainMsg = mainMsg)
         await state.set_state(FSMSteps.USER_INIT_STATE)
@@ -275,8 +274,8 @@ async def command_logout(
 
         mainMsg =  await bot.send_message(
             message.from_user.id,
-            text= await msg_maker.start_message(message.from_user.id, dp), 
-            reply_markup= await user_home_inline_button(message.from_user.id, dp)
+            text= await msg_maker.start_message(message.from_user.id, bot, dp), 
+            reply_markup= await user_home_inline_button(message.from_user.id, bot, dp)
         )
         patch_data = {
             'online': False
@@ -373,8 +372,8 @@ async def user_main_menu(
 
             mainMsg = await bot.send_message(
                 call.from_user.id,
-                text= await msg_maker.start_message(call.from_user.id, dp), 
-                reply_markup= await user_home_inline_button(call.from_user.id, dp)
+                text= await msg_maker.start_message(call.from_user.id, bot, dp), 
+                reply_markup= await user_home_inline_button(call.from_user.id, bot, dp)
             )
             await state.update_data(mainMsg = mainMsg)
 
@@ -397,8 +396,8 @@ async def user_main_menu(
 
         else:
             await call.message.edit_text(
-                text=await msg_maker.start_message(call.from_user.id, dp),
-                reply_markup= await user_home_inline_button(call.from_user.id, dp)
+                text=await msg_maker.start_message(call.from_user.id, bot, dp),
+                reply_markup= await user_home_inline_button(call.from_user.id, bot, dp)
             )
             await state.set_state(FSMSteps.USER_INIT_STATE)
 

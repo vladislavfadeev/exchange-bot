@@ -1,6 +1,6 @@
 from urllib import response
 
-from aiogram import Dispatcher
+from aiogram import Bot, Dispatcher
 from core.keyboards import changer_kb
 from core.utils import msg_maker
 from core.utils.bot_fsm import FSMSteps
@@ -17,16 +17,16 @@ import logging
 
 
 
-async def changer_notifier(changer_id: int, dp: Dispatcher):
+async def changer_notifier(changer_id: int, bot: Bot, dp: Dispatcher):
     '''
     '''
     state: FSMContext = FSMContext(
-        bot=dp.bot,
+        bot=bot,
         storage=dp.storage,
         key=StorageKey(
             chat_id=changer_id,
             user_id=changer_id,  
-            bot_id=dp.bot.id
+            bot_id=bot.id
         )
     )
 
@@ -40,14 +40,14 @@ async def changer_notifier(changer_id: int, dp: Dispatcher):
         current_state == FSMSteps.STUFF_INIT_STATE:
 
         try:
-            await dp.bot.delete_message(
+            await bot.delete_message(
                 mainMsg.chat.id,
                 mainMsg.message_id
             )
         except:
             pass
 
-        alertMsg: Message = await dp.bot.send_message(
+        alertMsg: Message = await bot.send_message(
             mainMsg.chat.id,
             text= await msg_maker.staff_welcome(
                 uncompleted_transfers
@@ -65,16 +65,16 @@ async def changer_notifier(changer_id: int, dp: Dispatcher):
 
 
 
-async def transfers_getter_changer(changer_id: int, dp: Dispatcher):
+async def transfers_getter_changer(changer_id: int, bot: Bot, dp: Dispatcher):
     '''
     '''
     state: FSMContext = FSMContext(
-        bot=dp.bot,
+        bot=bot,
         storage=dp.storage,
         key=StorageKey(
             chat_id=changer_id,
             user_id=changer_id,  
-            bot_id=dp.bot.id
+            bot_id=bot.id
         )
     )
 
@@ -116,16 +116,16 @@ async def transfers_getter_changer(changer_id: int, dp: Dispatcher):
 
 
 
-async def transfers_getter_user(user_id: int, dp: Dispatcher):
+async def transfers_getter_user(user_id: int, bot: Bot, dp: Dispatcher):
     '''
     '''
     state: FSMContext = FSMContext(
-        bot=dp.bot,
+        bot=bot,
         storage=dp.storage,
         key=StorageKey(
             chat_id=user_id,
             user_id=user_id,  
-            bot_id=dp.bot.id
+            bot_id=bot.id
         )
     )
     params = {
@@ -153,14 +153,14 @@ async def transfers_getter_user(user_id: int, dp: Dispatcher):
 
         if current_state == FSMSteps.USER_INIT_STATE:
             try:
-                await dp.bot.delete_message(
+                await bot.delete_message(
                     mainMsg.chat.id,
                     mainMsg.message_id
                 )
             except:
                 pass
 
-            alertMsg: Message = await dp.bot.send_message(
+            alertMsg: Message = await bot.send_message(
                 mainMsg.chat.id,
                 text= await msg_maker.start_message(user_id, dp),
                 reply_markup= await home_kb.user_home_inline_button(user_id)
@@ -198,7 +198,7 @@ async def transfers_getter_user(user_id: int, dp: Dispatcher):
 
 
 
-async def main_msg_updater(dp: Dispatcher):
+async def main_msg_updater(bot: Bot, dp: Dispatcher):
     '''
     '''
     response = await SimpleAPI.get(r.homeRoutes.userInit)
@@ -206,19 +206,19 @@ async def main_msg_updater(dp: Dispatcher):
 
     for id in id_list:
         state: FSMContext = FSMContext(
-            bot=dp.bot,
+            bot=bot,
             storage=dp.storage,
             key=StorageKey(
                 chat_id=id,
                 user_id=id,  
-                bot_id=dp.bot.id
+                bot_id=bot.id
             )
         )
         data: dict = await state.get_data()
         mainMsg: Message = data.get('mainMsg')
 
         try:
-            await dp.bot.delete_message(
+            await bot.delete_message(
                 mainMsg.chat.id,
                 mainMsg.message_id
             )
@@ -226,7 +226,7 @@ async def main_msg_updater(dp: Dispatcher):
             logging.exception(e)
 
         else:
-            mainMsg = await dp.bot.send_message(
+            mainMsg = await bot.send_message(
                 id,
                 text = mainMsg.text,
                 reply_markup = mainMsg.reply_markup,

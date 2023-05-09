@@ -2,7 +2,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.enums.parse_mode import ParseMode
 from core.utils.notifier import main_msg_updater
 from core.middlwares.settigns import appSettings
-from core.middlwares.middleware import SchedulerMiddleware
+from core.middlwares.middleware import DispatcherMiddleware, SchedulerMiddleware
 from core.handlers.home import (
     register_handlers_home,
     register_callback_handlers_home,
@@ -49,6 +49,7 @@ async def updater_job():
 async def register_middleware(dp: Dispatcher):
     
     dp.update.middleware.register(SchedulerMiddleware(scheduler))
+    dp.update.middleware.register(DispatcherMiddleware(dp))
 
 
 
@@ -66,8 +67,8 @@ async def register_handlers(dp: Dispatcher):
 async def main():
     
     bot = Bot(
-    token = appSettings.botSetting.botToken,
-    parse_mode=ParseMode.HTML,
+        token = appSettings.botSetting.botToken,
+        parse_mode=ParseMode.HTML,
     )
     dp = Dispatcher(storage=storage)
 

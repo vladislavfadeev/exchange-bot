@@ -120,7 +120,7 @@ async def new_user_event(
 
             mainMsg = await bot.send_message(
                 call.from_user.id,
-                text= await msg_maker.start_message(call.from_user.id, dp), 
+                text= await msg_maker.start_message(call.from_user.id, bot, dp), 
                 reply_markup= await home_kb.user_home_inline_button(call.from_user.id, dp)
             )
             await state.update_data(mainMsg = mainMsg)
@@ -220,7 +220,7 @@ async def new_user_event(
 
             mainMsg = await bot.send_message(
                 call.from_user.id,
-                text= await msg_maker.start_message(call.from_user.id, dp), 
+                text= await msg_maker.start_message(call.from_user.id, bot, dp), 
                 reply_markup= await home_kb.user_home_inline_button(call.from_user.id, dp)
             )
             await state.update_data(mainMsg = mainMsg)
