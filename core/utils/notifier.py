@@ -162,8 +162,8 @@ async def transfers_getter_user(user_id: int, bot: Bot, dp: Dispatcher):
 
             alertMsg: Message = await bot.send_message(
                 mainMsg.chat.id,
-                text= await msg_maker.start_message(user_id, dp),
-                reply_markup= await home_kb.user_home_inline_button(user_id)
+                text= await msg_maker.start_message(user_id, bot, dp),
+                reply_markup= await home_kb.user_home_inline_button(user_id, bot, dp)
             )
             await state.update_data(mainMsg = alertMsg)
 

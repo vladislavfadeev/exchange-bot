@@ -121,7 +121,7 @@ async def new_user_event(
             mainMsg = await bot.send_message(
                 call.from_user.id,
                 text= await msg_maker.start_message(call.from_user.id, bot, dp), 
-                reply_markup= await home_kb.user_home_inline_button(call.from_user.id, dp)
+                reply_markup= await home_kb.user_home_inline_button(call.from_user.id, bot, dp)
             )
             await state.update_data(mainMsg = mainMsg)
             await state.set_state(FSMSteps.USER_INIT_STATE)
@@ -221,7 +221,7 @@ async def new_user_event(
             mainMsg = await bot.send_message(
                 call.from_user.id,
                 text= await msg_maker.start_message(call.from_user.id, bot, dp), 
-                reply_markup= await home_kb.user_home_inline_button(call.from_user.id, dp)
+                reply_markup= await home_kb.user_home_inline_button(call.from_user.id, bot, dp)
             )
             await state.update_data(mainMsg = mainMsg)
             await state.set_state(FSMSteps.USER_INIT_STATE)
@@ -654,10 +654,11 @@ async def get_user_proof(
             'changerAccepted': False
         }
 
-        await SimpleAPI.post(
+        response = await SimpleAPI.post(
             r.userRoutes.transactions,
             data=data
         )
+        print(response.json())
 
         await message.delete()
         await mainMsg.edit_text(

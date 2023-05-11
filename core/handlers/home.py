@@ -36,13 +36,14 @@ async def command_start(
     msg_list = data.get('messageList')
     await state.update_data(messageList=[])
 
-    await SimpleAPI.post(
+    response = await SimpleAPI.post(
         r.homeRoutes.userInit,
         {
             'tg': message.from_user.id,
             "isActive": True
         }
     )  
+    print(response.json())
 
     if mainMsg:
 

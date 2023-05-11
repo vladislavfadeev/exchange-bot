@@ -2,7 +2,10 @@ from aiogram import Bot, Dispatcher
 from aiogram.enums.parse_mode import ParseMode
 from core.utils.notifier import main_msg_updater
 from core.middlwares.settigns import appSettings
-from core.middlwares.middleware import DispatcherMiddleware, SchedulerMiddleware
+from core.middlwares.middleware import (
+    DispatcherMiddleware,
+    SchedulerMiddleware
+)
 from core.handlers.home import (
     register_handlers_home,
     register_callback_handlers_home,
@@ -15,7 +18,7 @@ from core.handlers.changers import (
     register_message_handlers_changer,
     register_callback_handler_changer
 )
-from create_bot import scheduler, jobstores, storage
+from create_bot import scheduler, storage
 import asyncio
 import logging
 import jsonpickle
@@ -85,7 +88,7 @@ async def main():
         
         scheduler.start()
         await updater_job()
-        await dp.start_polling(bot)
+        await dp.start_polling(bot, skip_updates=True,)
         
     finally:
         # await bot.send_message(
@@ -98,52 +101,3 @@ async def main():
 
 if __name__ == '__main__':
     asyncio.run(main())
-
-
-
-
-
-
-
-
-
-# from aiogram.fsm.context import FSMContext
-# from aiogram.fsm.storage.base import StorageKey
-
-# user_id = ... # юзер айди искомого юзера
-# chat_id = ... # чат айди, где находится юзер
-
-# state_with: FSMContext = FSMContext(
-#     bot=bot, # объект бота
-#     storage=dp.storage, # dp - экземпляр диспатчера 
-#     key=StorageKey(
-#         chat_id=chat_id, # если юзер в ЛС, то chat_id=user_id
-#         user_id=user_id,  
-#         bot_id=bot.id))
-
-
-
-
-
-# from aiogram.utils import executor
-# from create_bot import dp
-# # from data_base import sqlite_db
-# import logging
-
-
-# logging.basicConfig(level=logging.DEBUG)
-
-# async def on_startup(_):
-#     print('Бот в онлайне')
-#     # sqlite_db.sql_start()
-
-
-# from handlers import main, admin, exchange, changers
-
-# main.register_handlers_main(dp)
-# admin.register_handlers_admin(dp)
-# exchange.register_handlers_exchange(dp)
-# changers.register_handlers_exchange(dp)
-
-
-# executor.start_polling(dp, skip_updates=True, on_startup=on_startup)
