@@ -40,7 +40,8 @@ async def new_user_event(
         bot: Bot, 
         dp: Dispatcher
 ):
-    '''
+    '''User "main menu" were he can choose his actions.
+    Exactly - 
     '''
     data: dict = await state.get_data()
     mainMsg: Message = data.get('mainMsg')

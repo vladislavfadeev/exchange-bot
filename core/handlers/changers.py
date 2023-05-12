@@ -1164,7 +1164,7 @@ async def staff_show_transfer_detail(
     data = await state.get_data()
     tr_id = callback_data.id
     transfers = data.get('uncompleted_transfers')
-    transfer_detail = [i for i in transfers if i['id']==tr_id][0]
+    transfer_detail = [i for i in transfers if i['id']==tr_id][0]     # !!!!!!!!!!!
     messageList = data.get('messageList')
     await state.update_data(ansvered_transfer_id = tr_id)
 

@@ -1,52 +1,52 @@
-import asyncio
-import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import Command
 from aiogram.types import Message
 from aiogram.types.callback_query import CallbackQuery
 from aiogram import F, Bot, Dispatcher
+
 from core.keyboards import changer_kb, home_kb
 from core.keyboards.callbackdata import HomeData
-from core.keyboards.home_kb import user_home_inline_button
 from core.api_actions.bot_api import SimpleAPI
 from core.utils import msg_maker
 from core.utils import  msg_var as msg
 from core.utils.bot_fsm import FSMSteps
 from core.middlwares.routes import r    # Dataclass whith all api routes
-from datetime import date
-import os
 from core.utils.notifier import (
     transfers_getter_changer
 )
+import asyncio
 
 
 async def command_start(
         message: Message,
         state: FSMContext,
-        apscheduler: AsyncIOScheduler,
         bot: Bot, 
         dp: Dispatcher
 ):
-    '''Handler ansver on command "/start"
     '''
+    Handler ansver on command "/start" and gives for user message
+    with "main menu", were he can choose his actions. Exactly it is:
+    - Help; Working time; Start change; My messages
+    '''
+    # delete user command message 
     await message.delete()
-    data = await state.get_data()
+
+    data: dict = await state.get_data()
     mainMsg: Message = data.get('mainMsg')
-    msg_list = data.get('messageList')
+    msg_list: list = data.get('messageList')
     await state.update_data(messageList=[])
 
-    response = await SimpleAPI.post(
+    # Send user identification data to db
+    await SimpleAPI.post(
         r.homeRoutes.userInit,
         {
             'tg': message.from_user.id,
             "isActive": True
         }
-    )  
-    print(response.json())
-
+    )
+    # if mainMsg is exists - refresh it for correctly bot working
     if mainMsg:
-
         try:
             await bot.delete_message(
                 mainMsg.chat.id,
@@ -54,65 +54,48 @@ async def command_start(
             )
         except:
             pass
-        
+        # if user send command /start from any message list - delete it
         if msg_list:
             try:   
                 for i in msg_list:
                     i: Message
-
                     await bot.delete_message(
                         i.chat.id,
                         i.message_id
                     )
             except:
                 pass
-
-        try:
-            if data.get('isStuff'):
-
-                transfers = data.get('uncompleted_transfers')
-
-                mainMsg = await bot.send_message(
-                    message.from_user.id,
-                    text = await msg_maker.staff_welcome(transfers),
-                    reply_markup = await changer_kb.staff_welcome_button(
-                        transfers
-                    )
+        # if user is staff - check state for new uncompleted 
+        # transfers for him and show it in his main message
+        if data.get('isStuff'):
+            transfers: list = data.get('uncompleted_transfers')
+            mainMsg: Message = await bot.send_message(
+                message.from_user.id,
+                text = await msg_maker.staff_welcome(transfers),
+                reply_markup = await changer_kb.staff_welcome_button(
+                    transfers
                 )
-                await state.set_state(FSMSteps.STUFF_INIT_STATE)
-
-            else:
-                
-                mainMsg =  await bot.send_message(
-                    message.from_user.id,
-                    text= await msg_maker.start_message(message.from_user.id, bot, dp),
-                    reply_markup= await user_home_inline_button(message.from_user.id, bot, dp)
-                )
-            
-            await state.update_data(
-                mainMsg = mainMsg
             )
-            
-        except Exception as e:
-            logging.exception(e)
-            
+            await state.update_data(mainMsg = mainMsg)
+            await state.set_state(FSMSteps.STUFF_INIT_STATE)
+        # if user is not staff - send him usual start message
+        else:
             mainMsg =  await bot.send_message(
                 message.from_user.id,
-                text= await msg_maker.start_message(message.from_user.id, bot, dp),
-                reply_markup= await user_home_inline_button(message.from_user.id, bot, dp)
+                text= await msg_maker.start_message(
+                    message.from_user.id,
+                    bot,
+                    dp
+                ),
+                reply_markup= await home_kb.user_home_inline_button(
+                    message.from_user.id,
+                    bot,
+                    dp
+                )
             )
-            
-            await state.update_data(mainMsg = mainMsg)
-            await state.set_state(FSMSteps.USER_INIT_STATE)
-    else:
-        mainMsg =  await bot.send_message(
-            message.from_user.id,
-            text= await msg_maker.start_message(message.from_user.id, bot, dp), 
-            reply_markup= await user_home_inline_button(message.from_user.id, bot, dp)
-        )
         await state.update_data(mainMsg = mainMsg)
         await state.set_state(FSMSteps.USER_INIT_STATE)
-
+            
 
 
 async def command_login(
@@ -121,27 +104,30 @@ async def command_login(
         apscheduler: AsyncIOScheduler,
         bot: Bot
 ):
-    '''Handler ansver on command "/login"
     '''
-
+    Handler ansver on command "/login" and check user id in backend.
+    If he is staff - bot send message with personal menu for changers.
+    '''
+    # send request for check user id
     response = await SimpleAPI.getDetails(
         r.changerRoutes.changerProfile,
         message.from_user.id
     )
-    data = await state.get_data()
-    mainMsg = data.get('mainMsg')
-    messageList = data.get('messageList')
-    isStuff = data.get('isStuff')
-    uncompleted_transfers = data.get('uncompleted_transfers')
-    new_transfer = data.get('new_transfer')
-
+    data: dict = await state.get_data()
+    mainMsg: Message = data.get('mainMsg')
+    messageList: list = data.get('messageList')
+    isStuff: bool = data.get('isStuff')
+    uncompleted_transfers: list = data.get('uncompleted_transfers')
+    new_transfer: list = data.get('new_transfer')
+    # if bot state have not information about current user status,
+    # or user is not staff
     if not isStuff:
-
         if response.status_code == 404:
+            # if user is not staff bot will tell him about it
+            await message.delete()
             info_msg = await message.answer(
                 text=msg.staff_404
             )
-            await message.delete()
             await asyncio.sleep(3)
             try:
                 await info_msg.delete()
@@ -149,27 +135,27 @@ async def command_login(
                 pass
 
         elif response.status_code == 200:
-
+            # if backend replied that current user is a staff
             getter_id = f'user_getter-{message.from_user.id}'
             job_list: list = [job.id for job in apscheduler.get_jobs()]
-                
+            # delete command message
+            await message.delete()
             if getter_id in job_list:
                 apscheduler.pause_job(getter_id)
-
             if uncompleted_transfers is None:
                 await state.update_data(uncompleted_transfers = [])
-
             if new_transfer is None:
                 await state.update_data(new_transfer = [])
-
+            # user can send login commad from any message list.
+            # if he do that - bot delete all this messages
             if messageList:
-                
                 for i in messageList:
+                    i: Message
                     try:
                         await i.delete()
                     except:
                         pass
-            
+            # if mainMsg is exists - refresh it for correctly bot working
             if mainMsg:
                 try:
                     await mainMsg.delete()
@@ -177,38 +163,34 @@ async def command_login(
                     pass
 
             changer_id = message.from_user.id
-
             patch_data = {
                 'online': True
             }
+            # change staff status to online
             await SimpleAPI.patch(
                 r.changerRoutes.changerProfile,
                 changer_id,
                 patch_data
             )
-
-            transfers = data.get('uncompleted_transfers')
-
-            await message.delete()
-            mainMsg = await bot.send_message(
+            # send staff welcome message and save it in to bot state
+            mainMsg: Message = await bot.send_message(
                 message.from_user.id,
                 text = await msg_maker.staff_welcome(
-                    transfers
+                    uncompleted_transfers
                 ),
                 reply_markup = await changer_kb.staff_welcome_button(
-                    transfers
+                    uncompleted_transfers
                 )
             )
             await state.update_data(mainMsg = mainMsg)
             await state.update_data(isStuff = True)
             await state.set_state(FSMSteps.STUFF_INIT_STATE)
-            
+            # there bot add changer notifier to job list if it is not in list
             getter_id = f'changer_getter-{message.from_user.id}'
             job_list: list = apscheduler.get_jobs()
             job_id_list: list = [job.id for job in job_list]
 
             if getter_id not in job_id_list:
-
                 apscheduler.add_job(
                     transfers_getter_changer,
                     'interval',
@@ -218,12 +200,12 @@ async def command_login(
                         'changer_id': changer_id,
                     }
                 )
-
+    # if bot state have information about current user
     elif isStuff:
         await message.delete()
         del_msg = await bot.send_message(
             message.from_user.id,
-            text = f'Вы уже вошли в систему как зарегистрированный пользователь'
+            text = msg.staff_islogin
         )
         await asyncio.sleep(2)
         try:
@@ -241,21 +223,20 @@ async def command_logout(
         dp: Dispatcher
 ):
     '''
+    React on /logout command. If user was logged in
+    he will be logged out and his offers will not be shown.
     '''
-    data = await state.get_data()
+    data: dict = await state.get_data()
     mainMsg: Message = data.get('mainMsg')
-    messageList = data.get('messageList')
-    isStuff = data.get('isStuff')
-
+    messageList: list = data.get('messageList')
+    isStuff: bool = data.get('isStuff')
     await message.delete()
-
+    # if current user is staff
     if isStuff:
-
         if messageList:
-            
+            # if user send command from message list
             for i in messageList:
                 i: Message
-
                 try:
                     await bot.delete_message(
                         i.chat.id,
@@ -263,7 +244,7 @@ async def command_logout(
                     )
                 except:
                     pass
-        
+        # refresh mainMsg for correctly bot working
         if mainMsg:
             try:
                 await bot.delete_message(
@@ -272,50 +253,53 @@ async def command_logout(
                 )
             except:
                 pass
-
-        mainMsg =  await bot.send_message(
+        mainMsg: Message =  await bot.send_message(
             message.from_user.id,
-            text= await msg_maker.start_message(message.from_user.id, bot, dp), 
-            reply_markup= await user_home_inline_button(message.from_user.id, bot, dp)
+            text= await msg_maker.start_message(
+                message.from_user.id,
+                bot,
+                dp
+            ), 
+            reply_markup= await home_kb.user_home_inline_button(
+                message.from_user.id,
+                bot,
+                dp
+            )
         )
-        patch_data = {
-            'online': False
-        }
-
+        # set offline staff status
+        patch_data = {'online': False}
         await SimpleAPI.patch(
             r.changerRoutes.changerProfile,
             message.from_user.id,
             patch_data
         )
-        
+        # fix all changes in bot state
         await state.update_data(mainMsg = mainMsg)
         await state.update_data(isStuff = False)
         await state.set_state(FSMSteps.USER_INIT_STATE)
-        
+        # check existense user notifier job in job list. If it is
+        # exist - resume this job.
         getter_id = f'user_getter-{message.from_user.id}'
         job_list: list = [job.id for job in apscheduler.get_jobs()]
-            
         if getter_id in job_list:
             apscheduler.resume_job(getter_id)
-
+        # remove other jobs from job list
         apscheduler.remove_job(f'changer_getter-{message.from_user.id}')
         try:
             apscheduler.remove_job(f'changer_notifier-{message.from_user.id}')
         except:
             pass
-
+    # if user have not staff status
     else:
-
         del_msg = await bot.send_message(
             message.from_user.id,
-            text = f'Вы не авторизованы'
+            text = msg.user_not_loggin
         )
         await asyncio.sleep(2)
         try:
             await del_msg.delete()
         except:
             pass
-    
 
 
 
@@ -326,13 +310,15 @@ async def user_main_menu(
         bot: Bot, 
         dp: Dispatcher
 ):
-    ''' Show "main" message
     '''
-    data = await state.get_data()
-    await state.update_data(messageList=[])
-    msg_list = data.get('messageList')
+    Show start message for users depending of his status
+    (staff or not)
+    '''
+    data: dict = await state.get_data()
+    msg_list: list = data.get('messageList')
     mainMsg: Message = data.get('mainMsg')
-
+    await state.update_data(messageList=[])
+    # if user send command from message list
     if msg_list:
         for i in msg_list:
             i: Message
@@ -343,7 +329,7 @@ async def user_main_menu(
                 )
             except:
                 pass
-
+    # refresh mainMsg for correctly bot working
     try:
         await bot.delete_message(
             mainMsg.chat.id,
@@ -351,65 +337,43 @@ async def user_main_menu(
         )
     except:
         pass
-
-    try:
-
-        if data.get('isStuff'):
-
-            transfers = data.get('uncompleted_transfers')
-                
-            mainMsg = await bot.send_message(
+    # if in bot state have 'isStaff' key with bool value True
+    if data.get('isStuff'):
+        transfers: list = data.get('uncompleted_transfers')
+        mainMsg = await bot.send_message(
+            call.from_user.id,
+            text = await msg_maker.staff_welcome(transfers),
+            reply_markup = await changer_kb.staff_welcome_button(
+                transfers
+            )
+        )
+        await state.update_data(mainMsg = mainMsg)
+        await state.set_state(FSMSteps.STUFF_INIT_STATE)
+    # if 'isStaff' key does not exists or have bool value False
+    else:
+        mainMsg = await bot.send_message(
+            call.from_user.id,
+            text= await msg_maker.start_message(
                 call.from_user.id,
-                text = await msg_maker.staff_welcome(transfers),
-                reply_markup = await changer_kb.staff_welcome_button(
-                    transfers
-                )
-            )
-            await state.update_data(mainMsg = mainMsg)
-            
-            await state.set_state(FSMSteps.STUFF_INIT_STATE)
-        
-        else:
-
-            mainMsg = await bot.send_message(
+                bot,
+                dp
+            ), 
+            reply_markup = await home_kb.user_home_inline_button(
                 call.from_user.id,
-                text= await msg_maker.start_message(call.from_user.id, bot, dp), 
-                reply_markup= await user_home_inline_button(call.from_user.id, bot, dp)
+                bot,
+                dp
             )
-            await state.update_data(mainMsg = mainMsg)
-
-            await state.set_state(FSMSteps.USER_INIT_STATE)
-        
-    except Exception as e:
-        logging.exception(e)
-        
-        if data.get('isStuff'):
-
-            transfers = data.get('uncompleted_transfers')
-
-            await call.message.edit_text(
-                text = await msg_maker.staff_welcome(transfers),
-                reply_markup = await changer_kb.staff_welcome_button(
-                    transfers
-                )
-            )
-            await state.set_state(FSMSteps.STUFF_INIT_STATE)
-
-        else:
-            await call.message.edit_text(
-                text=await msg_maker.start_message(call.from_user.id, bot, dp),
-                reply_markup= await user_home_inline_button(call.from_user.id, bot, dp)
-            )
-            await state.set_state(FSMSteps.USER_INIT_STATE)
+        )
+        await state.update_data(mainMsg = mainMsg)
+        await state.set_state(FSMSteps.USER_INIT_STATE)
 
 
 
 async def get_help(
         call: CallbackQuery,
-        state: FSMContext,
-        callback_data: HomeData
 ):
-    ''' Show information about rules, for correctly using the bot 
+    '''
+    Show information about rules, for correctly using the bot 
     '''
     await call.message.edit_text(
         text=msg.start_help_message,
@@ -419,10 +383,9 @@ async def get_help(
 
 async def work_time(
         call: CallbackQuery,
-        state: FSMContext,
-        callback_data: HomeData
 ):
-    ''' Show information about work time
+    '''
+    Show information about work time
     '''
     await call.message.edit_text(
         text=msg.start_work_mode_info,
@@ -446,7 +409,7 @@ async def del_not_handled_message(message: Message, bot: Bot):
 
 
 
-# Only for dev
+# Only for dev mode
 async def msg_dumps(message: Message, state: FSMContext, apscheduler: AsyncIOScheduler):
 
     i = apscheduler.get_jobs()
@@ -466,7 +429,8 @@ async def msg_dumps(message: Message, state: FSMContext, apscheduler: AsyncIOSch
 
 
 async def register_handlers_home(dp: Dispatcher):
-    '''Registry handlers there.
+    '''
+    Registry message handlers.
     '''
     dp.message.register(
         command_start,
@@ -489,6 +453,7 @@ async def register_handlers_home(dp: Dispatcher):
 
 async def register_callback_handlers_home(dp: Dispatcher):
     '''
+    Registry callback handlers.
     '''
     dp.callback_query.register(
         user_main_menu,
@@ -502,45 +467,3 @@ async def register_callback_handlers_home(dp: Dispatcher):
         work_time,
         HomeData.filter(F.action == 'time'),
     )
-
-
-
-
-
-
-
-
-    # dp.message.register(file_info, F.content_type.in_({'photo', 'document'}))
-    # dp.message.register(file_info, F.text == 'get file')
-
-
-# async def file_info(message: Message, state: FSMContext):
-
-#     data = await state.get_data()
-#     await bot.send_document('151436997', document= data['fileId'])
-    # if message.document:
-    #     dumps_str = dumps.dumps(message.dict(), default=str)
-    #     print(dumps_str)
-
-    #     file1 = await bot.get_file(message.document.file_id)
-    #     print(message.document.file_id)
-    #     await bot.send_document('151436997', document= 'BQACAgIAAxkBAAIMnGQyl2KgWg9C8IpI3EspVDgpA4a-AAIMKwACc5KZSWJceE5Kb4_QLwQ')
-    #     await bot.download_file(file1.file_path, message.document.file_name)
-    # !dir = f'proof/{message.from_user.id}/{date.today()}'
-
-    # !if not os.path.exists(dir):
-    #     os.makedirs(dir)
-
-    # !if message.photo:
-    #     await message.answer(text='photo')
-    #     file = await bot.get_file(message.photo[-1].file_id)
-    #     await bot.download_file(file.file_path, f'{dir}/{message.photo[-1].file_unique_id}.jpg')
-    #     # dumps_str = dumps.dumps(message.dict(), default=str)
-    #     # print(dumps_str)
-
-    # !elif message.document:
-    #     await message.answer(text='doc')
-    #     file = await bot.get_file(message.document.file_id)
-    #     await bot.download_file(file.file_path, f'{dir}/{message.document.file_name}')
-
-
