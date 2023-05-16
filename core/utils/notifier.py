@@ -1,5 +1,3 @@
-from urllib import response
-
 from aiogram import Bot, Dispatcher
 from core.keyboards import changer_kb
 from core.utils import msg_maker

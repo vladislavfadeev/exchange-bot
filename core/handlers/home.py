@@ -410,7 +410,11 @@ async def del_not_handled_message(message: Message, bot: Bot):
 
 
 # Only for dev mode
-async def msg_dumps(message: Message, state: FSMContext, apscheduler: AsyncIOScheduler):
+async def msg_dumps(
+        message: Message,
+        state: FSMContext,
+        apscheduler: AsyncIOScheduler
+):
 
     i = apscheduler.get_jobs()
     print(i)

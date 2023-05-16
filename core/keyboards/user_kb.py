@@ -11,8 +11,6 @@ from core.keyboards.callbackdata import (
     ChangerProofActions,
     SetBuyBankData,
     SetSellBankData,
-    StuffEditData,
-    StuffOfficeData,
     TestData,
     UserProofActions,
 )

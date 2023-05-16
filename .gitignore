@@ -3,6 +3,8 @@ __pycache__/*
 core/__pycache__/*
 core/api_actions/__pycache__/*
 core/handlers/__pycache__/*
+core/handlers/changers/__pycache__/*
+core/handlers/users/__pycache__/*
 core/keyboards/__pycache__/*
 core/middlwares/__pycache__/*
 core/utils/__pycache__/*

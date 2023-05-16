@@ -615,6 +615,8 @@ async def get_user_proof(
     buyAmount = round(sellAmount * rate)
     accountId = message.from_user.id
 
+    await message.delete()
+
     try:
         if message.photo:
 
@@ -625,16 +627,16 @@ async def get_user_proof(
 
             fileId = message.document.file_id
             proofType = 'document'
-
-    except Exception as e:
-
-        logging.exception(e)
-
-        await message.delete()
+        
+        else:
+            raise TypeError()
+        
+    except TypeError:
         await mainMsg.edit_text(
             text='⚠️ Data type is not provided, try again ⚠️',
             reply_markup = await user_kb.get_trouble_staff_contact()
         )
+
     else:
         data = {
             'changer': changerId,
