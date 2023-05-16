@@ -9,7 +9,7 @@ from core.middlwares.routes import r    # Dataclass whith all api routes
 from core.api_actions.bot_api import SimpleAPI
 from core.utils import msg_var as msg
 from core.keyboards import home_kb
-from create_bot import scheduler
+from create_storage import scheduler
 import logging
 
 

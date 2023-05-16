@@ -12,7 +12,7 @@ from core.middlwares.middleware import (
     DispatcherMiddleware,
     SchedulerMiddleware
 )
-from create_bot import scheduler, storage
+from create_storage import scheduler, storage, LOGGING_CONFIG
 
 
 
@@ -73,5 +73,5 @@ async def main():
 
 
 if __name__ == '__main__':
-    dictConfig(appSettings.botSetting.loggingConfig)
+    dictConfig(LOGGING_CONFIG)
     asyncio.run(main())

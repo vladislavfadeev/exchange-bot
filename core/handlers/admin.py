@@ -3,7 +3,7 @@ from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.utils.callback_data import CallbackData
 from aiogram.dispatcher.filters import Text
 from aiogram import types, Dispatcher
-from create_bot import dp, bot
+from create_storage import dp, bot
 # from data_base import sqlite_db
 # from keyboard import admin_kb, client_kb
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton

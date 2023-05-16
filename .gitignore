@@ -8,5 +8,6 @@ core/handlers/users/__pycache__/*
 core/keyboards/__pycache__/*
 core/middlwares/__pycache__/*
 core/utils/__pycache__/*
+Dockerfile
 .env
 eee.py
