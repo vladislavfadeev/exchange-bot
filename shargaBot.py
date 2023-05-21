@@ -8,10 +8,7 @@ from aiogram.enums.parse_mode import ParseMode
 from core.handlers import setup_handlers
 from core.utils.notifier import main_msg_updater
 from core.middlwares.settigns import appSettings
-from core.middlwares.middleware import (
-    DispatcherMiddleware,
-    SchedulerMiddleware
-)
+from core.middlwares import setup_middleware
 from create_storage import scheduler, storage, LOGGING_CONFIG
 
 
@@ -26,18 +23,10 @@ async def updater_job():
         scheduler.add_job(
             main_msg_updater,
             'cron',
-            day='1-7',
+            day_of_week= 'mon-sun',
             hour='2, 6',
             id=main_msg_updater_id,
         )
-
-
-
-async def register_middleware(dp: Dispatcher):
-    
-    dp.update.middleware.register(SchedulerMiddleware(scheduler))
-    dp.update.middleware.register(DispatcherMiddleware(dp))
-
 
 
 async def main():
@@ -48,7 +37,7 @@ async def main():
     )
     dp = Dispatcher(storage=storage)
 
-    await register_middleware(dp)
+    await setup_middleware(bot, dp, scheduler)
     await setup_handlers(dp)
 
     bot.session.json_loads = jsonpickle.loads

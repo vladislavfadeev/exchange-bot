@@ -1,18 +1,11 @@
-from aiogram.types import KeyboardButton
-from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 from core.api_actions.bot_api import SimpleAPI
 from core.middlwares.routes import r    # Dataclass whith all api routes
 from core.middlwares.settigns import appSettings
 from core.keyboards.callbackdata import (
-    AmountData,
-    CurrencyData,
-    HomeData,
-    OfferData,
-    ChangerProofActions,
-    SetBuyBankData,
-    SetSellBankData,
-    TestData,
-    UserProofActions,
+    URLData,
+    UserHomeData,
+    UserExchangeData
 )
 
 
@@ -23,27 +16,53 @@ async def set_sell_currency_button():
     builder = InlineKeyboardBuilder()
 
     for curr in currency.json():
-        
         if curr['name'] == 'MNT':
             pass
-
         else:
             builder.button(
-                text=curr["name"],
-                callback_data=CurrencyData(
+                text=f'Купить {curr["name"]}',
+                callback_data=UserExchangeData(
                     id=curr['id'],
+                    action='sell_currency',
                     name=curr['name'],
-                    isReturned=False
+                    is_returned=False
+                )
+            )
+            builder.button(
+                text=f'Продать {curr["name"]}',
+                callback_data=UserExchangeData(
+                    id=curr['id'],
+                    action='buy_currency',
+                    name=curr['name'],
+                    is_returned=False
                 )
             )
     builder.button(
         text='↩ Отменить',
-        callback_data= HomeData(
-            action='cancel'
+        callback_data= UserHomeData(
+            action='cancel',
+            id=0
         )
     )
-    builder.adjust(2, 1)
+    builder.adjust(2)
 
+    return builder.as_markup()
+
+
+async def show_offer_list_kb(offer):
+    '''
+    Build button for offer list
+    '''
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text='✅ Обменять тут',
+        callback_data=UserExchangeData(
+            id=offer['id'],
+            name='',
+            action='user_exchange_set_amount',
+            is_returned=False
+        )
+    )
     return builder.as_markup()
 
 
@@ -53,14 +72,16 @@ async def user_cancel_buttons_offerslist():
     builder = InlineKeyboardBuilder()
     builder.button(
         text='↩ Вернуться к выбору валюты',
-        callback_data=HomeData(
-            action='change'
+        callback_data=UserHomeData(
+            action='change',
+            id=0
         )
     )
     builder.button(
         text='↩ Вернуться на главную',
-        callback_data=HomeData(
-            action='cancel'
+        callback_data=UserHomeData(
+            action='cancel',
+            id=0
         )
     )
     builder.adjust(1)
@@ -75,10 +96,11 @@ async def user_return_to_offer_choice_button(offerData):
     builder = InlineKeyboardBuilder()
     builder.button(
         text=f'↩ Вернуться к выбору предложений',
-        callback_data=CurrencyData(
-            id=1,
+        callback_data=UserExchangeData(
+            id=0,
             name=offerData['currency'],
-            isReturned=True
+            action=f'{offerData["type"]}_currency',
+            is_returned=True
         )
     )
     
@@ -91,15 +113,20 @@ async def set_amount_check_inlkb():
     builder = InlineKeyboardBuilder()
     builder.button(
         text='⤵️ Согласен, продолжить',
-        callback_data=AmountData(
-            action='next'
+        callback_data=UserExchangeData(
+            id=0,
+            name='',
+            action='choose_changer_bank',
+            is_returned=False
         )
     )
     builder.button(
         text='⤴️ Вернуться, ввести другую сумму',
-        callback_data=OfferData(
+        callback_data=UserExchangeData(
             id=0,
-            isReturned=True
+            name='',
+            action='user_exchange_set_amount',
+            is_returned=True
         )
     )
     builder.adjust(1)
@@ -107,16 +134,18 @@ async def set_amount_check_inlkb():
     return builder.as_markup()
     
 
-async def set_sell_bank(banks):
+async def set_changer_bank(banks):
 
     builder = InlineKeyboardBuilder()
 
     for bank in banks.json():
         builder.button(
             text=bank['name'],
-            callback_data=SetSellBankData(
+            callback_data=UserExchangeData(
                 id=bank['id'],
-                setNew=False
+                name='',
+                action='choose_user_bank',
+                is_returned=False
             )
         )
     builder.adjust(1)
@@ -129,19 +158,22 @@ async def choose_user_bank_from_db(banks):
     builder = InlineKeyboardBuilder()
     builder.button(
         text=f'💰 Указать новый счет',
-        callback_data=SetSellBankData(
+        callback_data=UserExchangeData(
             id=0,
-            setNew = True 
+            name='set_new',
+            action='choose_user_bank',
+            is_returned=False
         )
     )
 
     for bank in banks.json():
         builder.button(
             text=f'🏦 {bank["name"]}\n💳 {bank["bankAccount"]}',
-            callback_data=SetBuyBankData(
+            callback_data=UserExchangeData(
                 id=bank['id'],
-                setNew = False,
-                bankName=''
+                name='',
+                action='user_make_transfer',
+                is_returned=False
             )
         )
     builder.adjust(1)
@@ -156,16 +188,18 @@ async def choose_bank_name_from_list(banksName):
     for bank in banksName.json():
         builder.button(
             text=f'{bank["name"]}',
-            callback_data=SetBuyBankData(
+            callback_data=UserExchangeData(
                 id=0,
-                setNew=True,
-                bankName=bank['name']
+                name=bank['name'],
+                action='choose_new_user_bank',
+                is_returned=False
             )
         )
     builder.button(
         text='↩ Вернуться на главную',
-        callback_data=HomeData(
-            action='cancel'
+        callback_data=UserHomeData(
+            action='cancel',
+            id=0
         )
     )
     builder.adjust(2, 2, 2, 2, 2, 2, 1,1)
@@ -187,9 +221,11 @@ async def accept_changer_transfer(transfer_id):
     for action in actions.keys():
         builder.button(
             text=actions[action],
-            callback_data=ChangerProofActions(
+            callback_data=UserExchangeData(
+                id=transfer_id,
+                name='',
                 action= action,
-                transferId=transfer_id
+                is_returned=False
             )
         )
     builder.adjust(1)
@@ -205,8 +241,7 @@ async def get_trouble_staff_contact():
     builder.button(
         text='👮🏻 Связаться с админом',
         url= f'tg://user?id={contact}',
-        callback_data=TestData(
-            url= ''
+        callback_data=URLData(
         )
     )
 
@@ -228,9 +263,9 @@ async def user_show_event_kb(event: dict):
 
         builder.button(
             text=value,
-            callback_data=UserProofActions(
+            callback_data=UserHomeData(
                 action=key,
-                transferId=event_id
+                id=event_id
             )
 
         )
@@ -247,14 +282,14 @@ async def final_transfer_stage():
     builder.button(
         text='👮🏻 Связаться с админом',
         url= f'tg://user?id={contact}',
-        callback_data=TestData(
-            url= ''
+        callback_data=URLData(
         )
     )
     builder.button(
         text='↩ Вернуться на главную',
-        callback_data=HomeData(
-            action='cancel'
+        callback_data=UserHomeData(
+            action='cancel',
+            id=0
         )
     )
     builder.adjust(1)

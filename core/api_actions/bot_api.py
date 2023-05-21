@@ -45,9 +45,7 @@ class SimpleAPI():
         )
         return response
 
-
-
-
+    
 
 
 

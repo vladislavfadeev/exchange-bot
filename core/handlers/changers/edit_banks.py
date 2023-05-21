@@ -11,7 +11,7 @@ from core.keyboards import (
     changer_kb,
 )
 from core.keyboards.callbackdata import (
-    StuffOfficeData,
+    StaffOfficeData,
 )
 
 
@@ -19,7 +19,7 @@ from core.keyboards.callbackdata import (
 async def staff_show_banks_account(                                # Доделать после проработки проверки!!!!!
         call: CallbackQuery,
         state: FSMContext,
-        callback_data: StuffOfficeData,
+        callback_data: StaffOfficeData,
         bot: Bot
 ):
     ''' 
@@ -126,7 +126,7 @@ async def setup_edit_banks_handlers(dp: Dispatcher):
     dp.callback_query.register(
 
         staff_show_banks_account,
-        StuffOfficeData.filter(
+        StaffOfficeData.filter(
             
             F.action == 'staff_show_accounts'
         )

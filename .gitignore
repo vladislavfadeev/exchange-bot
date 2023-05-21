@@ -11,3 +11,4 @@ core/utils/__pycache__/*
 Dockerfile
 .env
 eee.py
+sharga_bot.log

@@ -1,32 +1,13 @@
-from aiogram import Bot, Dispatcher
 from aiogram.fsm.context import FSMContext
-from aiogram.fsm.storage.base import StorageKey
 from core.middlwares.routes import r    # Dataclass whith all api routes
 from core.api_actions.bot_api import SimpleAPI
 
 
 
-async def state_getter(id: int, bot: Bot, dp: Dispatcher):
+async def start_message(id: int, state: FSMContext):
     '''
     '''
-    state: FSMContext = FSMContext(
-        bot=bot,
-        storage=dp.storage,
-        key=StorageKey(
-            chat_id=id,
-            user_id=id,  
-            bot_id=bot.id
-        )
-    )
-    state_dict: dict = await state.get_data()
-    return state_dict
-
-
-
-async def start_message(id: int, bot: Bot, dp: Dispatcher):
-    '''
-    '''
-    data: dict = await state_getter(id ,bot, dp)
+    data: dict = await state.get_data()
     events: list = data.get('user_events')
     changer_missed_event: list = data.get('changer_missed_event')
     insert: str = '<b>У вас новое сообщение!</b>\n\n' if events else ''
@@ -41,45 +22,39 @@ async def start_message(id: int, bot: Bot, dp: Dispatcher):
 
 
 
-async def offer_list_msg_maker(offers):
+async def offer_list_msg_maker(offer):
+    minAmount = 'Любая' if offer['minAmount'] == None else f"{offer['minAmount']} {offer['currency']}"
+    maxAmount = 'Любая' if offer['maxAmount'] == None else f"{offer['maxAmount']} {offer['currency']}"
+    score_data = offer['owner_score']
+    rbanks = ''
+    cbanks = ''
+    for rName in offer['refBanks']:
+        rbanks += f'👉 {rName["name"]}\n'
+
+    for cName in offer['currencyBanks']:
+        cbanks += f'👉 {cName["name"]}\n'
+
+    rbanks = "⚠️ Счет не назначен!" if not rbanks else rbanks
+    cbanks = "⚠️ Счет не назначен!" if not cbanks else cbanks
     
+    message = (
+        f'Рейтинг обменника:\n'
+        f'Средний перевод: {score_data["avg_amount"]} '
+        f'Всего обменов: {score_data["total_transactions"]}\n'
+        f'Среднее время ответа на перевод: {score_data["avg_time"]}\n\n'
+        f'💰 Обмен {offer["currency"]} 💰\n'
+        f'💸 {offer["bannerName"]} 💸\n'
+        f'💳 Банки, с которыми работает обменник:👇\n\n'
+        f'{offer["currency"]}\n'
+        f'{cbanks}'
+        f'\nMNT:\n'
+        f'{rbanks}\n'
+        f'\n▶️ Минимальная сумма обмена: ⚡ {minAmount}\n'
+        f'▶️ Максимальная сумма обмена: ⚡ {maxAmount}\n\n'
+        f'🔥 Курс в MNT: ⚡ {offer["rate"]} \n'
+    )
 
-    messages = []
-
-    for offer in offers:
-
-        minAmount = 'Любая' if offer['minAmount'] == None else f"{offer['minAmount']} {offer['currency']}"
-        maxAmount = 'Любая' if offer['maxAmount'] == None else f"{offer['maxAmount']} {offer['currency']}"
-        score_data = offer['owner_score']
-        rbanks = ''
-        cbanks = ''
-        for rName in offer['refBanks']:
-            rbanks += f'👉 {rName["name"]}\n'
-
-        for cName in offer['currencyBanks']:
-            cbanks += f'👉 {cName["name"]}\n'
-
-        rbanks = "⚠️ Счет не назначен!" if not rbanks else rbanks
-        cbanks = "⚠️ Счет не назначен!" if not cbanks else cbanks
-        
-        messages.append(
-            f'Рейтинг обменника:\n'
-            f'Средний перевод: {score_data["avg_amount"]} '
-            f'Всего обменов: {score_data["total_transactions"]}\n'
-            f'Среднее время ответа на перевод: {score_data["avg_time"]}\n\n'
-            f'💰 Обмен {offer["currency"]} 💰\n'
-            f'💸 {offer["bannerName"]} 💸\n'
-            f'💳 Банки, с которыми работает обменник:👇\n\n'
-            f'{offer["currency"]}\n'
-            f'{cbanks}'
-            f'\nMNT:\n'
-            f'{rbanks}\n'
-            f'\n▶️ Минимальная сумма обмена: ⚡ {minAmount}\n'
-            f'▶️ Максимальная сумма обмена: ⚡ {maxAmount}\n\n'
-            f'🔥 Курс в MNT: ⚡ {offer["rate"]} \n'
-        )
-
-    return messages
+    return message
 
 
 async def set_amount_msg_maker(offerData):
@@ -99,10 +74,10 @@ async def set_amount_returned_msg_maker(offerData):
 async def min_amount_error_msg_maker(offerData):
 
     message = f'⚠️ Вы указали сумму меньше, чем минимальная сумма\
-                \nсделки, обозначенная обменником в данном объявлении.\
+                сделки, обозначенная обменником в данном объявлении.\
                 \n\n↩ Вы можете вернуться к выбору предложений и выбрать\
-                \nдругой вариант или указать сумму равную или превышающую: \
-                \n💰 {offerData["minAmount"]} {offerData["currency"]}'
+                \nдругой вариант или указать сумму в пределах: \
+                \n💰 от {offerData["minAmount"]} до {offerData["maxAmount"]} {offerData["currency"]}'
     
     return message
 
@@ -110,10 +85,10 @@ async def min_amount_error_msg_maker(offerData):
 async def max_amount_error_msg_maker(offerData):
 
     message = f'⚠️ Вы указали сумму больше, чем максимальная сумма\
-                \nсделки, обозначенная обменником в данном объявлении.\
+                сделки, обозначенная обменником в данном объявлении.\
                 \n\n↩ Вы можете вернуться к выбору предложений и выбрать\
-                \nдругой вариант или указать сумму равную или менее: \
-                \n💰 {offerData["maxAmount"]} {offerData["currency"]}'    
+                \nдругой вариант или указать сумму в пределах: \
+                \n💰 от {offerData["minAmount"]} до {offerData["maxAmount"]} {offerData["currency"]}'    
 
     return message
 
@@ -126,7 +101,7 @@ async def show_user_buy_amount(sellAmount, rate, currency):
     return message
 
 
-async def set_sell_bank(currency):
+async def set_changer_bank(currency):
 
     message = f'🏦 Выберете банк, на который вам будет удобно\
                 \nперевести 💸 {currency} обменнику 👇'

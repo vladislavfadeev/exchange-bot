@@ -1,14 +1,12 @@
-from aiogram.types import KeyboardButton
-from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 from core.middlwares.settigns import appSettings
 from core.api_actions.bot_api import SimpleAPI
 from core.middlwares.routes import r    # Dataclass whith all api routes
 from core.keyboards.callbackdata import (
-    StuffEditData,
-    StuffOfficeData,
-    HomeData,
-    TestData,
-    UserProofActions,
+    StaffEditData,
+    StaffOfficeData,
+    URLData,
+    UserHomeData,
 )
 
 
@@ -27,7 +25,7 @@ async def staff_welcome_button(transfers):
     for action in actions.keys():
         builder.button(
             text=actions[action],
-            callback_data=StuffOfficeData(
+            callback_data=StaffOfficeData(
                 action=action
             )
         )
@@ -47,14 +45,15 @@ async def stuff_offer_menu_buttons():
     for action in actions.keys():
         builder.button(
             text=actions[action],
-            callback_data=StuffOfficeData(
+            callback_data=StaffOfficeData(
                 action=action
             )
         )
     builder.button(
         text='↩ Вернуться на главную',
-        callback_data= HomeData(
-            action='cancel'
+        callback_data= UserHomeData(
+            action='cancel',
+            id=0
         )
     )
     builder.adjust(2, 1)
@@ -63,47 +62,25 @@ async def stuff_offer_menu_buttons():
 
 
 
-async def stuff_edit_offer_list_buttons(offer_id):
+async def stuff_edit_offer_list_buttons(offer_id: int, draft: bool):
 
     builder = InlineKeyboardBuilder()
-    actions = {
+    pub_actions = {
         'staff_edit_offer': '⚙️ Редактировать',
         'staff_delete_offer': '🗑️ Удалить',
         'staff_unpublish_offer': '🗄 Убрать с публикации'
-        
     }
-
-    for action in actions.keys():
-
-        builder.button(
-            text= actions[action],
-            callback_data=StuffEditData(
-                id= offer_id,
-                action= action,
-                value= ''
-            )
-        )
-
-    builder.adjust(2, 1)
-
-    return builder.as_markup()
-
-
-
-async def stuff_edit_inactive_offers_buttons(offer_id):
-
-    builder = InlineKeyboardBuilder()
-    actions = {
+    draft_actions = {
         'staff_edit_offer': '⚙️ Редактировать',
         'staff_delete_offer': '🗑️ Удалить из архива',
         'staff_publish_offer': '📢 Опубликовать'
     }
-
+    actions = draft_actions if draft else pub_actions
     for action in actions.keys():
 
         builder.button(
             text= actions[action],
-            callback_data=StuffEditData(
+            callback_data=StaffEditData(
                 id= offer_id,
                 action= action,
                 value= ''
@@ -113,6 +90,7 @@ async def stuff_edit_inactive_offers_buttons(offer_id):
     builder.adjust(2, 1)
 
     return builder.as_markup()
+
 
 
 async def sfuff_cancel_button():
@@ -121,8 +99,9 @@ async def sfuff_cancel_button():
     builder = InlineKeyboardBuilder()
     builder.button(
         text='↩ Вернуться на главную',
-        callback_data=HomeData(
-            action='cancel'
+        callback_data=UserHomeData(
+            action='cancel',
+            id=0
         )
     )
     builder.adjust(1)
@@ -137,25 +116,36 @@ async def set_sell_currency_button():
     builder = InlineKeyboardBuilder()
 
     for curr in currency.json():
-        if curr['name'] != 'MNT':
-
+        if curr['name'] == 'MNT':
+            pass
+        else:
             builder.button(
-                text=curr["name"],
-                callback_data=StuffEditData(
+                text=f'Продажа {curr["name"]}',
+                callback_data=StaffEditData(
                     id=curr['id'],
                     value=curr['name'],
-                    action='new_offer_currency'
+                    action='new_sell_offer_currency'
+                )
+            )
+            builder.button(
+                text=f'Покупка {curr["name"]}',
+                callback_data=StaffEditData(
+                    id=curr['id'],
+                    value=curr['name'],
+                    action='new_buy_offer_currency'
                 )
             )
     builder.button(
         text='↩ Отменить',
-        callback_data= HomeData(
-            action='cancel'
+        callback_data= UserHomeData(
+            action='cancel',
+            id=0
         )
     )
     builder.adjust(2)
 
     return builder.as_markup()
+
 
 
 async def staff_accept_new_rate():
@@ -164,7 +154,7 @@ async def staff_accept_new_rate():
     builder = InlineKeyboardBuilder()
     builder.button(
         text='⤵️ Согласен, продолжить',
-        callback_data=StuffEditData(
+        callback_data=StaffEditData(
             id=0,
             action='create_new_offer_banks',
             value=''
@@ -172,7 +162,7 @@ async def staff_accept_new_rate():
     )
     builder.button(
         text='⤴️ Вернуться, ввести другую сумму',
-        callback_data=StuffEditData(
+        callback_data=StaffEditData(
             id=0,
             action='new_offer_currency_returned',
             value=''
@@ -182,17 +172,20 @@ async def staff_accept_new_rate():
     return builder.as_markup()
 
 
-async def stuff_create_new_offer_banks_dis_next(banks):
+async def stuff_new_offer_banks_w_next(banks: list):
 
     builder = InlineKeyboardBuilder()
 
     for bank in banks:
-
+        bank: dict
         currency = bank['currency']['name']
 
         builder.button(
-            text = f"💳 {bank.get('name')} - ({currency})\n{bank.get('bankAccount')}",
-            callback_data=StuffEditData(
+            text = (
+                f"💳 {bank.get('name')} - "
+                f"({currency})\n{bank.get('bankAccount')}"
+            ),
+            callback_data=StaffEditData(
                 id=bank.get('id'),
                 action='staff_set_banks',
                 value=''
@@ -200,8 +193,9 @@ async def stuff_create_new_offer_banks_dis_next(banks):
         )
     builder.button(
         text='↩ Вернуться на главную',
-        callback_data=HomeData(
-            action='cancel'
+        callback_data=UserHomeData(
+            action='cancel',
+            id=0
         )
     )
     builder.adjust(1)
@@ -219,7 +213,7 @@ async def stuff_create_new_offer_banks(banks):
 
         builder.button(
             text = f"💳 {bank.get('name')} - ({currency})\n{bank.get('bankAccount')}",
-            callback_data=StuffEditData(
+            callback_data=StaffEditData(
                 id=bank.get('id'),
                 action='staff_set_banks',
                 value=''
@@ -227,7 +221,7 @@ async def stuff_create_new_offer_banks(banks):
         )
     builder.button(
         text='👌 Продолжить',
-        callback_data=StuffEditData(
+        callback_data=StaffEditData(
             id=bank.get('id'),
             action='staff_will_set_amount',
             value=''
@@ -235,8 +229,9 @@ async def stuff_create_new_offer_banks(banks):
     )
     builder.button(
         text='↩ Вернуться на главную',
-        callback_data=HomeData(
-            action='cancel'
+        callback_data=UserHomeData(
+            action='cancel',
+            id=0
         )
     )
     builder.adjust(1)
@@ -252,14 +247,15 @@ async def staff_zero_banks_buttons():
     builder.button(
         text='👮🏻 Связаться с админом',
         url= f'tg://user?id={contact}',
-        callback_data=TestData(
+        callback_data=URLData(
             url= ''
         )
     )
     builder.button(
         text='↩ Вернуться на главную',
-        callback_data= HomeData(
-            action='cancel'
+        callback_data= UserHomeData(
+            action='cancel',
+            id=0
         )
     )
     builder.adjust(1)
@@ -272,7 +268,7 @@ async def staff_will_set_amount_kb():
     builder = InlineKeyboardBuilder()
     builder.button(
         text='👉 Указать',
-        callback_data=StuffEditData(
+        callback_data=StaffEditData(
             id=0,
             action='set_min&max_amount',
             value=''
@@ -280,7 +276,7 @@ async def staff_will_set_amount_kb():
     )
     builder.button(
         text='⤵️ Пропустить',
-        callback_data=StuffEditData(
+        callback_data=StaffEditData(
             id=0,
             action='staff_new_offer_name',
             value=''
@@ -288,8 +284,9 @@ async def staff_will_set_amount_kb():
     )    
     builder.button(
         text='↩ Вернуться на главную',
-        callback_data= HomeData(
-            action='cancel'
+        callback_data= UserHomeData(
+            action='cancel',
+            id=0
         )
     )
     builder.adjust(2, 1)
@@ -303,7 +300,7 @@ async def staff_set_min_amount():
     builder = InlineKeyboardBuilder()
     builder.button(
         text='⤵️ Пропустить шаг',
-        callback_data=StuffEditData(
+        callback_data=StaffEditData(
             id=0,
             action='staff_pass_min_amount',
             value=''
@@ -311,8 +308,9 @@ async def staff_set_min_amount():
     )
     builder.button(
         text='↩ Вернуться на главную',
-        callback_data=HomeData(
-            action='cancel'
+        callback_data=UserHomeData(
+            action='cancel',
+            id=0
         )
     )
     builder.adjust(1)
@@ -326,7 +324,7 @@ async def staff_accept_min_amount():
     builder = InlineKeyboardBuilder()
     builder.button(
         text='⤵️ Согласен, продолжить',
-        callback_data=StuffEditData(
+        callback_data=StaffEditData(
             id=0,
             action='staff_set_max_amount',
             value=''
@@ -334,7 +332,7 @@ async def staff_accept_min_amount():
     )
     builder.button(
         text='⤴️ Вернуться, ввести другую сумму',
-        callback_data=StuffEditData(
+        callback_data=StaffEditData(
             id=0,
             action='set_min&max_amount',
             value=''
@@ -351,7 +349,7 @@ async def staff_set_max_amount():
     builder = InlineKeyboardBuilder()
     builder.button(
         text='⤵️ Пропустить шаг',
-        callback_data=StuffEditData(
+        callback_data=StaffEditData(
             id=0,
             action='staff_pass_max_amount',
             value=''
@@ -359,8 +357,9 @@ async def staff_set_max_amount():
     )
     builder.button(
         text='↩ Вернуться на главную',
-        callback_data=HomeData(
-            action='cancel'
+        callback_data=UserHomeData(
+            action='cancel',
+            id=0
         )
     )
     builder.adjust(1)
@@ -374,7 +373,7 @@ async def staff_accept_max_amount():
     builder = InlineKeyboardBuilder()
     builder.button(
         text='⤵️ Согласен, продолжить',
-        callback_data=StuffEditData(
+        callback_data=StaffEditData(
             id=0,
             action='staff_new_offer_name',
             value=''
@@ -382,7 +381,7 @@ async def staff_accept_max_amount():
     )
     builder.button(
         text='⤴️ Вернуться, ввести другую сумму',
-        callback_data=StuffEditData(
+        callback_data=StaffEditData(
             id=0,
             action='staff_set_max_amount',
             value=''
@@ -399,7 +398,7 @@ async def staff_will_set_name():
     builder = InlineKeyboardBuilder()
     builder.button(
         text='👍 Да',
-        callback_data=StuffEditData(
+        callback_data=StaffEditData(
             id=0,
             action='staff_set_offer_name',
             value=''
@@ -407,7 +406,7 @@ async def staff_will_set_name():
     )
     builder.button(
         text='👎 Нет',
-        callback_data=StuffEditData(
+        callback_data=StaffEditData(
             id=0,
             action='staff_set_offer_final',
             value=''
@@ -415,8 +414,9 @@ async def staff_will_set_name():
     )
     builder.button(
         text='↩ Вернуться на главную',
-        callback_data=HomeData(
-            action='cancel'
+        callback_data=UserHomeData(
+            action='cancel',
+            id=0
         )
     )
     builder.adjust(2, 1)
@@ -430,7 +430,7 @@ async def staff_accept_offer_name():
     builder = InlineKeyboardBuilder()
     builder.button(
         text='👍 Продолжить',
-        callback_data=StuffEditData(
+        callback_data=StaffEditData(
             id=0,
             action='staff_set_offer_final',
             value=''
@@ -438,7 +438,7 @@ async def staff_accept_offer_name():
     )
     builder.button(
         text='⤴️ Вернуться, ввести заново',
-        callback_data=StuffEditData(
+        callback_data=StaffEditData(
             id=0,
             action='staff_set_offer_name',
             value=''
@@ -446,8 +446,9 @@ async def staff_accept_offer_name():
     )
     builder.button(
         text='↩ Вернуться на главную',
-        callback_data=HomeData(
-            action='cancel'
+        callback_data=UserHomeData(
+            action='cancel',
+            id=0
         )
     )
     builder.adjust(1)
@@ -460,7 +461,7 @@ async def staff_create_offer_final_text_kb():
     builder = InlineKeyboardBuilder()
     builder.button(
         text = '👌 Опубликовать',
-        callback_data=StuffEditData(
+        callback_data=StaffEditData(
             id=0,
             action='staff_post_offer',
             value=''
@@ -468,7 +469,7 @@ async def staff_create_offer_final_text_kb():
     )
     builder.button(
         text='⚠️ Сохранить без публикации',
-        callback_data=StuffEditData(
+        callback_data=StaffEditData(
             id=0,
             action='staff_post_offet_non_active',
             value=''
@@ -476,8 +477,9 @@ async def staff_create_offer_final_text_kb():
     )
     builder.button(
         text='↩ Отклонить',
-        callback_data=HomeData(
-            action='cancel'
+        callback_data=UserHomeData(
+            action='cancel',
+            id=0
         )
     )
     builder.adjust(1)
@@ -490,8 +492,9 @@ async def staff_create_new_offer_succes():
     builder = InlineKeyboardBuilder()
     builder.button(
         text='⚠️ Понятно, в главное меню',
-        callback_data=HomeData(
-            action='cancel'
+        callback_data=UserHomeData(
+            action='cancel',
+            id=0
         )
     )
     
@@ -513,7 +516,7 @@ async def staff_edit_offer_show_kb(offer):
 
         builder.button(
             text=text,
-            callback_data=StuffEditData(
+            callback_data=StaffEditData(
                 id=offer.get('id'),
                 action=action,
                 value=''
@@ -521,8 +524,9 @@ async def staff_edit_offer_show_kb(offer):
         )
     builder.button(
         text='↩ Отмена, на главную',
-        callback_data=HomeData(
-            action='cancel'
+        callback_data=UserHomeData(
+            action='cancel',
+            id=0
         )
     )
     builder.adjust(1)
@@ -535,7 +539,7 @@ async def staff_back_to_offer_menu():
     builder = InlineKeyboardBuilder()
     builder.button(
         text='↩ Отмена, вернуться в меню',
-        callback_data=StuffOfficeData(
+        callback_data=StaffOfficeData(
             action='offers'
         )
     )
@@ -549,7 +553,7 @@ async def staff_edit_offer_values(decline):
     builder = InlineKeyboardBuilder()
     builder.button(
         text='👍 Продолжить',
-        callback_data=StuffEditData(
+        callback_data=StaffEditData(
             id=0,
             action='staff_edit_accept',
             value=''
@@ -557,7 +561,7 @@ async def staff_edit_offer_values(decline):
     )
     builder.button(
         text='⤴️ Вернуться, ввести заново',
-        callback_data=StuffEditData(
+        callback_data=StaffEditData(
             id=0,
             action=decline,
             value=''
@@ -565,7 +569,7 @@ async def staff_edit_offer_values(decline):
     )
     builder.button(
         text='↩ Вернуться на главную',
-        callback_data=StuffOfficeData(
+        callback_data=StaffOfficeData(
             action='offers'
         )
     )
@@ -579,7 +583,7 @@ async def staff_edit_offer_succes_kb():
     builder = InlineKeyboardBuilder()
     builder.button(
         text='👍 Понятно, в меню',
-        callback_data=StuffOfficeData(
+        callback_data=StaffOfficeData(
             action='offers'
         )
     )
@@ -597,7 +601,7 @@ async def stuff_edit_offer_banks_dis_next(banks):
 
         builder.button(
             text = f"💳 {bank.get('name')} - ({currency})\n{bank.get('bankAccount')}",
-            callback_data=StuffEditData(
+            callback_data=StaffEditData(
                 id=bank.get('id'),
                 action='staff_edit_offer_banks_set',
                 value=''
@@ -605,7 +609,7 @@ async def stuff_edit_offer_banks_dis_next(banks):
         )
     builder.button(
         text='↩ Вернуться в меню',
-        callback_data=StuffOfficeData(
+        callback_data=StaffOfficeData(
             action='offers'
         )
     )
@@ -623,7 +627,7 @@ async def stuff_edit_offer_banks(banks):
 
         builder.button(
             text = f"💳 {bank.get('name')} - ({currency})\n{bank.get('bankAccount')}",
-            callback_data=StuffEditData(
+            callback_data=StaffEditData(
                 id=bank.get('id'),
                 action='staff_edit_offer_banks_set',
                 value=''
@@ -631,7 +635,7 @@ async def stuff_edit_offer_banks(banks):
         )
     builder.button(
         text='👍 Продолжить',
-        callback_data=StuffEditData(
+        callback_data=StaffEditData(
             id=0,
             action='staff_edit_offer_banks_patch',
             value=''
@@ -639,7 +643,7 @@ async def stuff_edit_offer_banks(banks):
     )
     builder.button(
         text='↩ Вернуться в меню',
-        callback_data=StuffOfficeData(
+        callback_data=StaffOfficeData(
             action='offers'
         )
     )
@@ -662,7 +666,7 @@ async def staff_edit_banks_accounts(account_id, isActive):
 
             builder.button(
                 text= actions[action],
-                callback_data=StuffEditData(
+                callback_data=StaffEditData(
                     id= account_id,
                     action= action,
                     value= ''
@@ -679,7 +683,7 @@ async def staff_edit_banks_accounts(account_id, isActive):
 
             builder.button(
                 text= actions[action],
-                callback_data=StuffEditData(
+                callback_data=StaffEditData(
                     id= account_id,
                     action= action,
                     value= ''
@@ -697,7 +701,7 @@ async def staff_show_transfers(transfer_id):
 
     builder.button(
         text = '🤝 Ответить',
-        callback_data=StuffEditData(
+        callback_data=StaffEditData(
             id= transfer_id,
             action= 'staff_transfers_get_detail',
             value= ''
@@ -717,7 +721,7 @@ async def staff_show_transfer_detail_none_next(transfer_id):
 
     builder.button(
         text = '⚠️ Перевод не получил',
-        callback_data=StuffEditData(
+        callback_data=StaffEditData(
             id= transfer_id,
             action= 'staff_transfer_claims',
             value= ''
@@ -727,13 +731,13 @@ async def staff_show_transfer_detail_none_next(transfer_id):
     builder.button(
         text='👮🏻 Связаться с админом',
         url= f'tg://user?id={contact}',
-        callback_data=TestData(
+        callback_data=URLData(
             url= ''
         )
     )
     builder.button(
         text = '↩ Вернуться',
-        callback_data=StuffOfficeData(
+        callback_data=StaffOfficeData(
             action= 'staff_show_transfers',
         )
     )
@@ -750,7 +754,7 @@ async def staff_show_transfer_detail_accept(transfer_id):
 
     builder.button(
         text = '⚠️ Подтвердить',
-        callback_data=StuffEditData(
+        callback_data=StaffEditData(
             id= transfer_id,
             action= 'staff_transfer_accepted',
             value= ''
@@ -760,16 +764,39 @@ async def staff_show_transfer_detail_accept(transfer_id):
     builder.button(
         text='👮🏻 Связаться с админом',
         url= f'tg://user?id={contact}',
-        callback_data=TestData(
+        callback_data=URLData(
             url= ''
         )
     )
     builder.button(
         text = '↩ Вернуться',
-        callback_data=StuffOfficeData(
+        callback_data=StaffOfficeData(
             action= 'staff_show_transfers',
         )
     )
     builder.adjust(1)
     
+    return builder.as_markup()
+
+
+async def error_kb():
+
+    contact = appSettings.botSetting.troubleStaffId
+    builder = InlineKeyboardBuilder()
+
+    builder.button(
+        text='👮🏻 Связаться с админом',
+        url= f'tg://user?id={contact}',
+        callback_data=URLData(
+        )
+    )
+    builder.button(
+        text='↩ Вернуться на главную',
+        callback_data=UserHomeData(
+            action='cancel',
+            id=0
+        )
+    )
+    builder.adjust(1)
+
     return builder.as_markup()

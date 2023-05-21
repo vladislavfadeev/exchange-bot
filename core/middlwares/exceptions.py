@@ -11,3 +11,7 @@ class MaxAmountError(Exception):
 
 class MaxLenError(Exception):
     pass
+
+
+class ResponseError(Exception):
+    pass

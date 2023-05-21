@@ -9,6 +9,7 @@ class BotSettings:
     adminId: int
     troubleStaffId : int
     troubleStaff: str
+    devStaffId: int
 
 @dataclass
 class APISettings:
@@ -52,6 +53,7 @@ def get_settings(path: str):
             adminId=env.int("ADMIN_ID"),
             troubleStaff=env.str("TROUBLE_STAFF"),
             troubleStaffId=env.int("TROUBLE_STAFF_ID"),
+            devStaffId=env.int("DEV_STAFF_ID"),
         ),
         apiSettings=APISettings(
             baseUrl=env.str("BASE_URL"),

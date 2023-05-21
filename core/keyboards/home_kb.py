@@ -1,34 +1,13 @@
-from asyncio import events
-from aiogram import Bot, Dispatcher
-from aiogram.types import KeyboardButton
 from aiogram.fsm.context import FSMContext
-from aiogram.fsm.storage.base import StorageKey
-from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
-from core.keyboards.callbackdata import HomeData, UserProofActions
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+from core.keyboards.callbackdata import UserHomeData
 
 
 
-async def state_getter(id: int, bot: Bot, dp: Dispatcher):
-    '''
-    '''
-    state: FSMContext = FSMContext(
-        bot=bot,
-        storage=dp.storage,
-        key=StorageKey(
-            chat_id=id,
-            user_id=id,  
-            bot_id=bot.id
-        )
-    )
-    state_dict: dict = await state.get_data()
-    return state_dict
-
-
-
-async def user_home_inline_button(id: int, bot: Bot, dp: Dispatcher):
+async def user_home_inline_button(id: int, state: FSMContext):
     '''Build InlineKeyboardButton for "/start" function.
     '''
-    data: dict = await state_getter(id, bot, dp)
+    data: dict = await state.get_data()
     events: list = data.get('user_events')
     value: str = f'({len(events)})' if events else ''
 
@@ -38,23 +17,17 @@ async def user_home_inline_button(id: int, bot: Bot, dp: Dispatcher):
         'info': 'Справка',
         'time': 'Режим работы',
         'change': 'Обменять валюту',
+        'user_new_events': f'Мои сообщения {value}',
     }
 
     for i in action.keys():
         builder.button(
             text=action[i],
-            callback_data=HomeData(
-                action=i
+            callback_data=UserHomeData(
+                action=i,
+                id=0
             )
         )
-
-    builder.button(
-        text = f'Мои события {value}',
-        callback_data = UserProofActions(
-            action = 'user_new_events',
-            transferId=0
-        )
-    )
     builder.adjust(2, 1, 1)
 
     return builder.as_markup()
@@ -66,8 +39,9 @@ async def user_back_home_inline_button():
 
     builder.button(
         text='↩ Вернуться на главную',
-        callback_data=HomeData(
-            action='cancel'
+        callback_data=UserHomeData(
+            action='cancel',
+            id=0
         )
     )
 

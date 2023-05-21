@@ -16,14 +16,14 @@ from core.keyboards import (
     changer_kb,
 )
 from core.keyboards.callbackdata import (
-    StuffEditData,
+    StaffEditData,
 )
 
 
 async def staff_edit_offer(
         call: CallbackQuery,
         state: FSMContext,
-        callback_data: StuffEditData,
+        callback_data: StaffEditData,
         bot: Bot
 ):
     '''
@@ -66,7 +66,7 @@ async def staff_edit_offer(
 async def staff_edit_offer_steps(
         call: CallbackQuery,
         state: FSMContext,
-        callback_data: StuffEditData
+        callback_data: StaffEditData
 ):
     '''
     '''
@@ -223,7 +223,7 @@ async def staff_edit_offer_values_checker(
 async def staff_edit_offer_banks(
         call: CallbackQuery,
         state: FSMContext,
-        callback_data: StuffEditData
+        callback_data: StaffEditData
 ):
     '''
     '''
@@ -332,7 +332,7 @@ async def staff_edit_offer_banks(
 async def staff_edit_offer_values_setter(
         call: CallbackQuery,
         state: FSMContext,
-        callback_data: StuffEditData
+        callback_data: StaffEditData
 ):
     '''
     '''
@@ -458,7 +458,7 @@ async def setup_edit_offers_handlers(dp: Dispatcher):
     dp.callback_query.register(
 
         staff_edit_offer,
-        StuffEditData.filter(
+        StaffEditData.filter(
         
             F.action == 'staff_edit_offer'
         )
@@ -466,7 +466,7 @@ async def setup_edit_offers_handlers(dp: Dispatcher):
     dp.callback_query.register(
 
         staff_edit_offer_steps,
-        StuffEditData.filter(
+        StaffEditData.filter(
             
             F.action.in_({
                 'staff_edit_offer_name',
@@ -480,7 +480,7 @@ async def setup_edit_offers_handlers(dp: Dispatcher):
     dp.callback_query.register(
 
         staff_edit_offer_values_setter,
-        StuffEditData.filter(
+        StaffEditData.filter(
             
             F.action.in_({
                 'staff_edit_accept',
@@ -496,7 +496,7 @@ async def setup_edit_offers_handlers(dp: Dispatcher):
     dp.callback_query.register(
 
         staff_edit_offer_banks,
-        StuffEditData.filter(
+        StaffEditData.filter(
             
             F.action.in_({
                 'staff_edit_offer_banks',

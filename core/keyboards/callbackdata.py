@@ -1,57 +1,27 @@
-import typing
 from aiogram.filters.callback_data import CallbackData
 
 
-class HomeData(CallbackData, prefix='home'):
+class UserHomeData(CallbackData, prefix='user_home'):
     action: str
-
-
-class CurrencyData(CallbackData, prefix='curr'):
     id: int
+
+
+class UserExchangeData(CallbackData, prefix='user_exchange'):
+    id: int
+    action: str
     name: str
-    isReturned: bool
+    is_returned: bool
+    
 
-
-class OfferData(CallbackData, prefix='off_d'):
-    id: int
-    isReturned: bool
-
-
-class AmountData(CallbackData, prefix='am_d'):
+class StaffOfficeData(CallbackData, prefix='staff_office'):
     action: str
 
 
-class SetSellBankData(CallbackData, prefix='sell_bd'):
-    id: int
-    setNew: bool
-
-
-class SetBuyBankData(CallbackData, prefix='buy_bd'):
-    id: int
-    setNew: bool
-    bankName: str
-
-
-class UserProofActions(CallbackData, prefix='upa'):
-    action: str
-    transferId: int
-
-
-class ChangerProofActions(CallbackData, prefix='cpa'):
-    action: str
-    transferId: int
-
-
-class TestData(CallbackData, prefix='test'):
-    url: str
-
-
-class StuffOfficeData(CallbackData, prefix='office'):
-    action: str
-
-
-class StuffEditData(CallbackData, prefix='stuff_edit'):
+class StaffEditData(CallbackData, prefix='staff_edit'):
     id: int
     action: str
     value: str
     
+
+class URLData(CallbackData, prefix='url'):
+    ...

@@ -7,7 +7,7 @@ from aiogram.fsm.storage.base import StorageKey
 from aiogram.types import Message
 from core.middlwares.routes import r    # Dataclass whith all api routes
 from core.api_actions.bot_api import SimpleAPI
-from core.utils import msg_var as msg
+from core.utils import msg_var
 from core.keyboards import home_kb
 from create_storage import scheduler
 import logging
@@ -63,7 +63,11 @@ async def changer_notifier(changer_id: int, bot: Bot, dp: Dispatcher):
 
 
 
-async def transfers_getter_changer(changer_id: int, bot: Bot, dp: Dispatcher):
+async def transfers_getter_changer(
+        changer_id: int,
+        bot: Bot,
+        dp: Dispatcher
+    ):
     '''
     '''
     state: FSMContext = FSMContext(
@@ -75,7 +79,6 @@ async def transfers_getter_changer(changer_id: int, bot: Bot, dp: Dispatcher):
             bot_id=bot.id
         )
     )
-
     params = {
         'changer': changer_id,
         'claims': False,
@@ -86,16 +89,36 @@ async def transfers_getter_changer(changer_id: int, bot: Bot, dp: Dispatcher):
         r.changerRoutes.transactions,
         params=params
     )
-
-    new_user_transfers = response.json()
-    data = await state.get_data()
-    uncompleted_transfers = data.get('uncompleted_transfers')
-
-    if uncompleted_transfers != new_user_transfers:
+    new_user_transfers: dict = response.json()
+    data: dict = await state.get_data()
+    transfers: list = data.get('uncompleted_transfers')
+    mainMsg: Message = data.get('mainMsg')
+    current_state: FSMSteps = await state.get_state()
+    home_state: FSMSteps = FSMSteps.STAFF_HOME_STATE
+    if transfers != new_user_transfers:
 
         await state.update_data(
             uncompleted_transfers = new_user_transfers
         )
+        if current_state == home_state:
+            try:
+                await bot.delete_message(
+                    mainMsg.chat.id,
+                    mainMsg.message_id
+                )
+            except:
+                pass
+            alertMsg: Message = await bot.send_message(
+                mainMsg.chat.id,
+                text= await msg_maker.staff_welcome(
+                    transfers
+                ),
+                reply_markup= await changer_kb.staff_welcome_button(
+                    transfers
+                )
+            )
+            await state.update_data(mainMsg = alertMsg)
+            
         changer_notifier_id = f'changer_notifier-{changer_id}'
         job_list: list = scheduler.get_jobs()
         job_id_list: list = [job.id for job in job_list]
@@ -231,6 +254,8 @@ async def main_msg_updater(bot: Bot, dp: Dispatcher):
                 disable_notification=True
             )
             await state.update_data(mainMsg = mainMsg)
+
+
 
 
 

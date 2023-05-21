@@ -17,8 +17,8 @@ from core.keyboards import (
     admin_kb,
 )
 from core.keyboards.callbackdata import (
-    StuffEditData,
-    StuffOfficeData,
+    StaffEditData,
+    StaffOfficeData,
 )
 
 
@@ -26,7 +26,7 @@ from core.keyboards.callbackdata import (
 async def staff_show_transfers(
         call: CallbackQuery,
         state: FSMContext,
-        callback_data: StuffEditData,
+        callback_data: StaffEditData,
         bot: Bot
 ):
     '''
@@ -35,23 +35,22 @@ async def staff_show_transfers(
     data = await state.get_data()
     uncompleted_transfers = data.get('uncompleted_transfers')
 
-    if not uncompleted_transfers:
+    # if not uncompleted_transfers:
 
-        params = {
-            'changer': call.from_user.id,
-            'claims': False,
-            'isCompleted': False,
-            'changerAcceptDate': None
-        }
-        response = await SimpleAPI.get(
-            r.changerRoutes.transactions,
-            params=params
-        )
-        uncompleted_transfers = response.json()
-        await state.update_data(uncompleted_transfers = uncompleted_transfers)
+    #     params = {
+    #         'changer': call.from_user.id,
+    #         'claims': False,
+    #         'isCompleted': False,
+    #         'changerAcceptDate': None
+    #     }
+    #     response = await SimpleAPI.get(
+    #         r.changerRoutes.transactions,
+    #         params=params
+    #     )
+    #     uncompleted_transfers = response.json()
+    #     await state.update_data(uncompleted_transfers = uncompleted_transfers)
 
-    if uncompleted_transfers is not None and\
-        len(uncompleted_transfers):
+    if uncompleted_transfers:
 
         await call.message.delete()
 
@@ -84,8 +83,7 @@ async def staff_show_transfers(
         
         await state.update_data(messageList = messageList)
 
-    if uncompleted_transfers is None or\
-        len(uncompleted_transfers) == 0:                    # проверить корректность! 
+    if not uncompleted_transfers:                    # проверить корректность! 
         await call.message.edit_text(
             text = msg.staff_empty_uncompleted_transfers,
             reply_markup = await changer_kb.sfuff_cancel_button()
@@ -96,20 +94,27 @@ async def staff_show_transfers(
 async def staff_show_transfer_detail(
         call: CallbackQuery,
         state: FSMContext,
-        callback_data: StuffEditData,
+        callback_data: StaffEditData,
         bot: Bot
 ):
     '''
     '''
-    data = await state.get_data()
-    tr_id = callback_data.id
-    transfers = data.get('uncompleted_transfers')
-    transfer_detail = [i for i in transfers if i['id']==tr_id][0]     # !!!!!!!!!!!
-    messageList = data.get('messageList')
+    data: dict = await state.get_data()
+    tr_id: int = callback_data.id
+    transfers: list = data.get('uncompleted_transfers')
+    # transfer_detail = [i for i in transfers if i['id']==tr_id]     # !!!!!!!!!!!
+    messageList: list = data.get('messageList')
     await state.update_data(ansvered_transfer_id = tr_id)
+    for i in transfers:
+        if i == tr_id:
+            transfer_detail: dict = i
 
     if callback_data.action == 'staff_transfers_get_detail':
 
+        for i in transfers:
+            if i == tr_id:
+                transfer_detail: dict = i
+                
         if messageList:
 
             for i in messageList:
@@ -287,7 +292,7 @@ async def setup_exchange_handlers(dp: Dispatcher):
     dp.callback_query.register(
 
         staff_show_transfers,
-        StuffOfficeData.filter(
+        StaffOfficeData.filter(
             
             F.action == 'staff_show_transfers'
         )
@@ -295,7 +300,7 @@ async def setup_exchange_handlers(dp: Dispatcher):
     dp.callback_query.register(
 
         staff_show_transfer_detail,
-        StuffEditData.filter(
+        StaffEditData.filter(
         
             F.action.in_({
               'staff_transfers_get_detail',

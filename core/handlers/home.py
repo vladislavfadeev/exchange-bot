@@ -6,7 +6,7 @@ from aiogram.types.callback_query import CallbackQuery
 from aiogram import F, Bot, Dispatcher
 
 from core.keyboards import changer_kb, home_kb
-from core.keyboards.callbackdata import HomeData
+from core.keyboards.callbackdata import UserHomeData
 from core.api_actions.bot_api import SimpleAPI
 from core.utils import msg_maker
 from core.utils import  msg_var as msg
@@ -35,6 +35,7 @@ async def command_start(
     data: dict = await state.get_data()
     mainMsg: Message = data.get('mainMsg')
     msg_list: list = data.get('messageList')
+    is_staff: bool = data.get('isStuff')
     await state.update_data(messageList=[])
 
     # Send user identification data to db
@@ -67,7 +68,7 @@ async def command_start(
                 pass
         # if user is staff - check state for new uncompleted 
         # transfers for him and show it in his main message
-        if data.get('isStuff'):
+        if is_staff:
             transfers: list = data.get('uncompleted_transfers')
             mainMsg: Message = await bot.send_message(
                 message.from_user.id,
@@ -77,22 +78,21 @@ async def command_start(
                 )
             )
             await state.update_data(mainMsg = mainMsg)
-            await state.set_state(FSMSteps.STUFF_INIT_STATE)
-        # if user is not staff - send him usual start message
-        else:
-            mainMsg =  await bot.send_message(
+            await state.set_state(FSMSteps.STAFF_HOME_STATE)
+    # if user is not staff - send him usual start message
+    # or he send commad /start for the first time
+    if not mainMsg or not is_staff:
+        mainMsg =  await bot.send_message(
+            message.from_user.id,
+            text= await msg_maker.start_message(
                 message.from_user.id,
-                text= await msg_maker.start_message(
-                    message.from_user.id,
-                    bot,
-                    dp
-                ),
-                reply_markup= await home_kb.user_home_inline_button(
-                    message.from_user.id,
-                    bot,
-                    dp
-                )
+                state
+            ),
+            reply_markup= await home_kb.user_home_inline_button(
+                message.from_user.id,
+                state
             )
+        )
         await state.update_data(mainMsg = mainMsg)
         await state.set_state(FSMSteps.USER_INIT_STATE)
             
@@ -184,8 +184,9 @@ async def command_login(
             )
             await state.update_data(mainMsg = mainMsg)
             await state.update_data(isStuff = True)
-            await state.set_state(FSMSteps.STUFF_INIT_STATE)
-            # there bot add changer notifier to job list if it is not in list
+            await state.set_state(FSMSteps.STAFF_HOME_STATE)
+            # there bot add changer notifier to job list if
+            # it is not in list
             getter_id = f'changer_getter-{message.from_user.id}'
             job_list: list = apscheduler.get_jobs()
             job_id_list: list = [job.id for job in job_list]
@@ -257,13 +258,11 @@ async def command_logout(
             message.from_user.id,
             text= await msg_maker.start_message(
                 message.from_user.id,
-                bot,
-                dp
+                state
             ), 
             reply_markup= await home_kb.user_home_inline_button(
                 message.from_user.id,
-                bot,
-                dp
+                state
             )
         )
         # set offline staff status
@@ -284,9 +283,13 @@ async def command_logout(
         if getter_id in job_list:
             apscheduler.resume_job(getter_id)
         # remove other jobs from job list
-        apscheduler.remove_job(f'changer_getter-{message.from_user.id}')
+        apscheduler.remove_job(
+            f'changer_getter-{message.from_user.id}'
+        )
         try:
-            apscheduler.remove_job(f'changer_notifier-{message.from_user.id}')
+            apscheduler.remove_job(
+                f'changer_notifier-{message.from_user.id}'
+            )
         except:
             pass
     # if user have not staff status
@@ -306,7 +309,7 @@ async def command_logout(
 async def user_main_menu(
         call: CallbackQuery,
         state: FSMContext,
-        callback_data: HomeData,
+        callback_data: UserHomeData,
         bot: Bot, 
         dp: Dispatcher
 ):
@@ -348,20 +351,18 @@ async def user_main_menu(
             )
         )
         await state.update_data(mainMsg = mainMsg)
-        await state.set_state(FSMSteps.STUFF_INIT_STATE)
+        await state.set_state(FSMSteps.STAFF_HOME_STATE)
     # if 'isStaff' key does not exists or have bool value False
     else:
         mainMsg = await bot.send_message(
             call.from_user.id,
             text= await msg_maker.start_message(
                 call.from_user.id,
-                bot,
-                dp
+                state
             ), 
             reply_markup = await home_kb.user_home_inline_button(
                 call.from_user.id,
-                bot,
-                dp
+                state
             )
         )
         await state.update_data(mainMsg = mainMsg)
@@ -417,6 +418,8 @@ async def msg_dumps(
 ):
 
     i = apscheduler.get_jobs()
+    it = await state.get_data()
+    t = it.get('test')
     print(i)
     # await message.answer('Printed to console')
     # fileId = message.document.file_id
@@ -432,9 +435,9 @@ async def msg_dumps(
 
 
 
-async def register_handlers_home(dp: Dispatcher):
+async def setup_home_handlers(dp: Dispatcher):
     '''
-    Registry message handlers.
+    Registry callback handlers.
     '''
     dp.message.register(
         command_start,
@@ -452,22 +455,15 @@ async def register_handlers_home(dp: Dispatcher):
     dp.message.register(
         del_not_handled_message,
     )
-
-
-
-async def register_callback_handlers_home(dp: Dispatcher):
-    '''
-    Registry callback handlers.
-    '''
     dp.callback_query.register(
         user_main_menu,
-        HomeData.filter(F.action == 'cancel'),
+        UserHomeData.filter(F.action == 'cancel'),
     )
     dp.callback_query.register(
         get_help,
-        HomeData.filter(F.action == 'info'),
+        UserHomeData.filter(F.action == 'info'),
     )
     dp.callback_query.register(
         work_time,
-        HomeData.filter(F.action == 'time'),
+        UserHomeData.filter(F.action == 'time'),
     )

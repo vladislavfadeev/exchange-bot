@@ -13,6 +13,7 @@ class FSMSteps(StatesGroup):
     WAIT_CHANGER_PROOF = State()
     GET_CHANGER_PROOF = State()
 
+    STAFF_HOME_STATE = State()
     STUFF_INIT_STATE = State()
     STUFF_ACCOUNTS = State()
     STAFF_TRANSFRES = State()
