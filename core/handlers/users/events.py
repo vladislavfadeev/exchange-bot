@@ -52,14 +52,16 @@ async def new_user_event(
                         call.from_user.id,
                         photo=proof_id,
                         caption=await msg_maker.user_show_events(event),
-                        reply_markup=await user_kb.user_show_event_kb(event)
+                        reply_markup=await user_kb.user_show_event_kb(event),
+                        parse_mode='MARKDOWN',
                     )
                 elif changer_proof_type == 'document':
                     self_msg: Message = await bot.send_document(
                         call.from_user.id,
                         document=proof_id,
                         caption=await msg_maker.user_show_events(event),
-                        reply_markup=await user_kb.user_show_event_kb(event)
+                        reply_markup=await user_kb.user_show_event_kb(event),
+                        parse_mode='MARKDOWN',
                     )
                 messageList.append(self_msg)
             sep_msg: Message = await bot.send_message(
@@ -88,7 +90,7 @@ async def new_user_event(
             data=patch_data,
             exp_code=[200]
         )
-        exception: bool = response.get('response')
+        exception: bool = response.get('exception')
         if not exception:
             new_event_list: list = [i for i in user_event if i['id'] != transfer_id]
             await state.update_data(user_events = new_event_list)
@@ -127,8 +129,6 @@ async def new_user_event(
     elif callback_data.action == 'user_transfer_claims':
         transfer_id = callback_data.id
         transfer: dict = [i for i in user_event if i['id']==transfer_id][0]
-        new_event_list: list = [i for i in user_event if i['id'] != transfer_id]
-        await state.update_data(user_events = new_event_list)
         messageList = data.get('messageList')
         patch_data = {
             'claims': True
@@ -141,6 +141,8 @@ async def new_user_event(
         )
         exception: bool = response.get('exception')
         if not exception:
+            new_event_list: list = [i for i in user_event if i['id'] != transfer_id]
+            await state.update_data(user_events = new_event_list)
             await bot.send_message(
                 appSettings.botSetting.troubleStaffId,
                 text=f'Пользователь не принял перевод обменника, Заявка {transfer["id"]}',

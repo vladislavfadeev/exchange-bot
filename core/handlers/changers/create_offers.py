@@ -116,7 +116,7 @@ async def stuff_create_new_offer_banks(
         exp_code=[200]
     )
     response_ref: dict = await api_gateway.get(
-        r.changerRoutes.banks, 
+        path=r.changerRoutes.banks, 
         params = params_ref,
         exp_code=[200]
     )

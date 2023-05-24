@@ -483,9 +483,6 @@ async def setup_home_handlers(dp: Dispatcher):
         Command(commands=['logout'])
     )
     dp.message.register(msg_dumps, F.text == 'get_info')
-    dp.message.register(
-        del_not_handled_message,
-    )
     dp.callback_query.register(
         user_main_menu,
         UserHomeData.filter(F.action == 'cancel'),
@@ -497,4 +494,10 @@ async def setup_home_handlers(dp: Dispatcher):
     dp.callback_query.register(
         work_time,
         UserHomeData.filter(F.action == 'time'),
+    )
+
+
+async def setup_service_handlers(dp: Dispatcher):
+    dp.message.register(
+        del_not_handled_message,
     )

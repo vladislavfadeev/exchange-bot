@@ -46,7 +46,7 @@ LOGGING_CONFIG = {
         },
         'file': {
             'class': 'logging.handlers.RotatingFileHandler',
-            'level': 'INFO',
+            'level': 'WARNING',
             'formatter': 'basic',
             'filename': 'sharga_bot.log',
             'maxBytes': 1048576,

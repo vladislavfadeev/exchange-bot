@@ -136,10 +136,10 @@ async def complete_set_new_bank(allData, api_gateway: SimpleAPI):
     sellAmount = allData['sellAmount']
     offerData = allData['selectedOffer']
 
-    detaillUrl = allData["sellBank"]
+    detailUrl = allData["changerBank"]
     response: dict = await api_gateway.get_detail(
-        path=r.keysRoutes.currencyList,
-        detaillUrl=detaillUrl
+        path=r.changerRoutes.banks,
+        detailUrl=detailUrl
     )
     exception: bool = response.get('exception')
     if not exception:
@@ -149,7 +149,7 @@ async def complete_set_new_bank(allData, api_gateway: SimpleAPI):
                     \n\n👉 Теперь выполните перевод {sellAmount} {offerData["currency"]}\
                     \nна счет обменника, по реквизитам ниже 👇\
                     \n\n🏦 Банк: {acc["name"]}\
-                    \n💳 Счет: {acc["bankAccount"]}\
+                    \n💳 Счет: ```{acc["bankAccount"]}```\
                     \n\n⚠️ Обязательно! ⚠️\
                     \n После перевода, ответным сообщением\
                     \nпришлите скриншот / фото\
@@ -157,6 +157,17 @@ async def complete_set_new_bank(allData, api_gateway: SimpleAPI):
                     \nо платеже ⚠️'
         
         return message
+
+
+
+async def user_inform(amount: int, currency: str):
+
+    message= (
+        'Ваша заявка успешно зарегистрирована!\n'
+        f'Ожидайте поступление {amount} {currency} '
+        f'на указанные вами реквизиты'
+    )
+    return message
 
 
 
@@ -412,7 +423,7 @@ async def staff_show_editable_banks(bank: dict):
     message = (
         f'💰 Банк {bank["name"]} 💰\n\n'
         f'💵 Валюта {bank["currency"]["name"]} 💵\n'
-        f'💳 Счет {bank["bankAccount"]} 💳\n\n'
+        f'💳 Счет ```{bank["bankAccount"]}``` 💳\n\n'
         f'{alert_msg}'
     )
 
@@ -422,7 +433,7 @@ async def staff_show_editable_banks(bank: dict):
 async def staff_show_uncompleted_transfers(transfer):
 
     id = transfer['id']
-    sell_cur = transfer['sellCurrency']
+    sell_cur = transfer['offerCurrency']
     sell_amount = transfer['sellAmount']
     buy_amount = transfer['buyAmount']
     rate = transfer['rate']
@@ -445,7 +456,7 @@ async def staff_show_uncompleted_transfers(transfer):
 async def staff_show_uncompleted_transfer_detail(transfer):
 
     id = transfer['id']
-    sell_cur = transfer['sellCurrency']
+    sell_cur = transfer['offerCurrency']
     sell_amount = transfer['sellAmount']
     buy_amount = transfer['buyAmount']
     rate = transfer['rate']
@@ -467,7 +478,7 @@ async def staff_show_uncompleted_transfer_detail(transfer):
         f'Вы должны перевести ⚡ {buy_amount} MNT\n'
         f'<b>по следующим реквизитам</b> :\n\n'
         f'<b>{user_bank_name}</b>\n'
-        f'<b>{user_bank_acc}</b>\n\n'
+        f'<b>```{user_bank_acc}```</b>\n\n'
         '📢⚠️📢⚠️📢⚠️📢⚠️📢⚠️\n'
         '<b>После этого сразу пришлите подтверждение</b>\n'
         'в виде скриншота с платежной информацией или\n'
@@ -483,7 +494,7 @@ async def staff_show_uncompleted_transfer_detail(transfer):
 async def user_show_events(user_event: dict):
 
     id = user_event['id']
-    sell_cur = user_event['sellCurrency']
+    sell_cur = user_event['offerCurrency']
     sell_amount = user_event['sellAmount']
     buy_amount = user_event['buyAmount']
     rate = user_event['rate']
@@ -496,7 +507,7 @@ async def user_show_events(user_event: dict):
     message = (
         f'\nПеревод id {id}\n'
         f'💰<b> {type} {sell_cur}</b> 💰\n'
-        f'Курс{rate} - сумма {sell_amount} {sell_cur}\n'
+        f'Курс {rate} - сумма {sell_amount} {sell_cur}\n'
         f'💳 Банк, на который обменник сделал перевод:👇\n\n'
         f'{user_bank_name}\n'
         f'```{user_bank_acc}```\n\n'
@@ -526,10 +537,10 @@ async def error_set_new_bank(account: int):
 
     message = (
         f'К сожалению, указанный вами банковский счет '
-        f'уже зарегистрирован в системе у другого пользователя. '
-        f'Вероятно вы допустили ошибку:'
-        f'\n<b>{account}</b>\n'
-        f'Если это так - просто повторите ввод корректно.\n'
+        f'уже зарегистрирован в системе. '
+        f'Вероятно вы допустили ошибку в его номере:'
+        f'\n```<b>{account}</b>```\n'
+        f'Если это так - просто повторите ввод еще раз.\n'
         f'Если вы уверены в правильности номера, сообщите '
         f'о возникшей ситуации администратору, он во всем разберется.'
     )

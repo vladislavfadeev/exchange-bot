@@ -14,6 +14,7 @@ from core.keyboards import (
     changer_kb,
 )
 from core.keyboards.callbackdata import (
+    StaffEditData,
     StaffOfficeData,
 )
 
@@ -55,7 +56,10 @@ async def staff_show_banks_account(                                # Додел�
                 pass
         banks_list = response.get('response')
         if banks_list:
-            await call.message.delete()
+            try:
+                await call.message.delete()
+            except:
+                pass
             await state.update_data(staff_editable_banks = banks_list)
             messageList = []
             for bank in banks_list:
@@ -147,7 +151,7 @@ async def setup_edit_banks_handlers(dp: Dispatcher):
     )
     dp.callback_query.register(
         staff_bank_account_setter,
-        StaffOfficeData.filter(
+        StaffEditData.filter(
             F.action.in_({
                 'staff_edit_banks_active',
                 'staff_edit_banks_inactive',

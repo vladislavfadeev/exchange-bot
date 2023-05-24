@@ -55,10 +55,6 @@ async def staff_show_transfers(
     if uncompleted_transfers:
 
         await call.message.delete()
-
-        messages = await msg_maker.staff_show_uncompleted_transfers(
-            uncompleted_transfers
-        )
         messageList = []
 
         for tr in uncompleted_transfers:
@@ -102,7 +98,8 @@ async def staff_show_transfer_detail(
     messageList: list = data.get('messageList')
     await state.update_data(ansvered_transfer_id = tr_id)
     for i in transfers:
-        if i == tr_id:
+        i: dict
+        if i.get('id') == tr_id:
             transfer_detail: dict = i
 
     if callback_data.action == 'staff_transfers_get_detail':
@@ -124,11 +121,11 @@ async def staff_show_transfer_detail(
         if transfer_detail['userProofType'] == 'photo':
 
             mainMsg = await bot.send_photo(
-
                 call.from_user.id,
                 photo = transfer_detail['userProof'],
                 caption = await msg_maker.staff_show_uncompleted_transfer_detail(transfer_detail),
-                reply_markup = await changer_kb.staff_show_transfer_detail_none_next(tr_id)
+                reply_markup = await changer_kb.staff_show_transfer_detail_none_next(tr_id),
+                parse_mode='MARKDOWN',
 
             )
             await state.update_data(mainMsg = mainMsg)
@@ -136,12 +133,11 @@ async def staff_show_transfer_detail(
         elif transfer_detail['userProofType'] == 'document':
 
             mainMsg = await bot.send_document(
-
                 call.from_user.id,
                 document = transfer_detail['userProof'],
                 caption = await msg_maker.staff_show_uncompleted_transfer_detail(transfer_detail),
-                reply_markup = await changer_kb.staff_show_transfer_detail_none_next(tr_id)
-
+                reply_markup = await changer_kb.staff_show_transfer_detail_none_next(tr_id),
+                parse_mode='MARKDOWN',
             )
             await state.update_data(mainMsg = mainMsg)
 
@@ -149,8 +145,6 @@ async def staff_show_transfer_detail(
 
 
     elif callback_data.action == 'staff_transfer_claims':
-        new_list = [i for i in transfers if i['id']!=tr_id]
-        await state.update_data(uncompleted_transfers = new_list)
 
         patch_data = {
             'claims': True
@@ -163,13 +157,15 @@ async def staff_show_transfer_detail(
         )
         exception: bool = response.get('exception')
         if not exception:
+            new_list = [i for i in transfers if i['id']!=tr_id]
+            await state.update_data(uncompleted_transfers = new_list)
             await bot.send_message(
                 appSettings.botSetting.troubleStaffId,
                 text=f'Обменник не принял перевод пользователя, Заявка {tr_id}',
                 reply_markup= await admin_kb.get_claim_contacts_toadmin(
                     transfer_detail['user'],
                     call.from_user.id
-                )
+                ),
             )
             if transfer_detail['userProofType'] == 'photo':
                 await bot.send_photo(
@@ -196,8 +192,6 @@ async def staff_show_transfer_detail(
             await alert_message_sender(bot, call.from_user.id)
 
     elif callback_data.action == 'staff_transfer_accepted':
-        new_list = [i for i in transfers if i['id']!=tr_id]
-        await state.update_data(uncompleted_transfers = new_list)
 
         proof_type = data.get('proof_type')
         proof_id = data.get('proof_id')
@@ -218,6 +212,8 @@ async def staff_show_transfer_detail(
         )
         exception: bool = response.get('exception')
         if not exception:
+            new_list = [i for i in transfers if i['id'] != tr_id]
+            await state.update_data(uncompleted_transfers = new_list)
             try:
                 await bot.delete_message(
                     call.message.chat.id,

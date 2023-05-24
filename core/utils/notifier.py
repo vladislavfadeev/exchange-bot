@@ -40,7 +40,7 @@ async def changer_notifier(
     uncompleted_transfers: dict = data.get('uncompleted_transfers')
 
     if uncompleted_transfers and \
-        current_state == FSMSteps.STUFF_INIT_STATE:
+        current_state == FSMSteps.STAFF_HOME_STATE:
 
         try:
             await bot.delete_message(
@@ -117,13 +117,14 @@ async def transfers_getter_changer(
                     )
                 except:
                     pass
+                alert_tr: list = new_user_transfers
                 alertMsg: Message = await bot.send_message(
                     mainMsg.chat.id,
                     text= await msg_maker.staff_welcome(
-                        transfers
+                        alert_tr
                     ),
                     reply_markup= await changer_kb.staff_welcome_button(
-                        transfers
+                        alert_tr
                     )
                 )
                 await state.update_data(mainMsg = alertMsg)
@@ -201,8 +202,8 @@ async def transfers_getter_user(
 
                 alertMsg: Message = await bot.send_message(
                     mainMsg.chat.id,
-                    text= await msg_maker.start_message(user_id, bot, dp),
-                    reply_markup= await home_kb.user_home_inline_button(user_id, bot, dp)
+                    text= await msg_maker.start_message(user_id, state),
+                    reply_markup= await home_kb.user_home_inline_button(user_id, state)
                 )
                 await state.update_data(mainMsg = alertMsg)
 

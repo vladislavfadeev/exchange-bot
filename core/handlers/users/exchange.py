@@ -25,7 +25,6 @@ from core.middlwares.exceptions import (
     MaxLenError,
     MinAmountError,
     MaxAmountError,
-    ResponseError,
 )
 
 
@@ -265,7 +264,7 @@ async def choose_changer_bank(
     elif offer_type == 'sell':
         currency = 'MNT'
         params = {
-            'owner': offer_data("owner"),
+            'owner': offer_data.get("owner"),
             'isActive': True,
             'currency__name': currency
         }
@@ -316,7 +315,6 @@ async def choose_user_bank(
             'isActive': True,
             'currency__name': currency
         }
-
     banks: dict = await api_gateway.get(
         path=r.userRoutes.userBanks,
         params=params,
@@ -330,11 +328,13 @@ async def choose_user_bank(
             await state.update_data(changerBank = callback_data.id)        
             await call.message.edit_text(
                 text = await msg_maker.choose_user_bank_from_db(),
-                reply_markup= await user_kb.choose_user_bank_from_db(banks)
+                reply_markup= await user_kb.choose_user_bank_from_db(banks_data)
             )
         # if accounts does not exists or user want create new
         else:
             if currency in ['RUB']:
+                if callback_data.name != 'set_new':
+                    await state.update_data(changerBank = callback_data.id)
                 await call.message.edit_text(
                     text=await msg_maker.enter_user_bank_name(currency)
                 )
@@ -447,7 +447,7 @@ async def apply_new_user_bank(
         )
     else:
         offer_type = offer.get('type')
-        currency = curr_id if offer_type == 'sell' else 2       # check id from db
+        currency = curr_id if offer_type == 'sell' else 3       # check id from db
         postData = {
             "name": bankName,
             "bankAccount": account,
@@ -464,18 +464,20 @@ async def apply_new_user_bank(
         status_code: int = response.get('status_code')
         if status_code == 201:
             user_account: dict = response.get('response')
-            await mainMsg.edit_text( 
+            await mainMsg.edit_text(
+                parse_mode='MARKDOWN',
                 text= await msg_maker.complete_set_new_bank(
                     data,
                     api_gateway
                 ),
                 reply_markup= await home_kb.user_back_home_inline_button()
             )
-            await state.update_data(userAccount = user_account)
+            await state.update_data(userAccount = user_account.get('id'))
             await state.set_state(FSMSteps.GET_USER_PROOF)
         elif status_code == 400:
             response_data: dict = response.get('response')
-            await mainMsg.edit_text( 
+            await mainMsg.edit_text(
+                parse_mode='MARKDOWN',
                 text= await msg_maker.error_set_new_bank(account),
                 reply_markup= await user_kb.final_transfer_stage()
             )
@@ -494,7 +496,7 @@ async def use_old_user_bank(
         callback_data: UserExchangeData
     ):
     '''
-    Handler calling if user have avalible bank account
+    Handler calling if user have available bank account
     '''
     data = await state.get_data()
     accountId = callback_data.id
@@ -504,10 +506,10 @@ async def use_old_user_bank(
         detailUrl=accountId,
         exp_code=[200]
     )
-    exception: bool = response.get('response')
+    exception: bool = response.get('exception')
     if not exception:
         user_account: dict = response.get('response')
-        await state.update_data(userAccount = user_account)
+        await state.update_data(userAccount = user_account.get('id'))
         await call.message.edit_text(
             text= await msg_maker.complete_set_new_bank(
                 data,
@@ -538,7 +540,7 @@ async def get_user_proof(
     changerId: int = selected_offer.get('owner')
     offerId: int = selected_offer.get('id')
     changerBank: int = data.get('changerBank')
-    userBank: int = data.get('userBank')
+    userBank: int = data.get('userAccount')
     sellCurrency: str = selected_offer.get('currency')
     sellAmount: float = data.get('sellAmount')
     rate: float = selected_offer.get('rate')
@@ -561,6 +563,7 @@ async def get_user_proof(
         # inform user about error and delete this message
         # after 3 seconds 
         del_msg: Message = await bot.send_message(
+            message.from_user.id,
             text=msg.type_error_message
         )
         await asyncio.sleep(3)
@@ -597,7 +600,7 @@ async def get_user_proof(
             # if all checks were sucsessful bot create new
             # task that will track the exchanger's response
             await mainMsg.edit_text(
-                text= await msg_maker.user_inform(buyAmount),
+                text= await msg_maker.user_inform(buyAmount, sellCurrency),
                 reply_markup = await user_kb.final_transfer_stage()
             )
             await state.set_state(FSMSteps.USER_INIT_STATE)

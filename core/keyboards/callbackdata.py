@@ -6,7 +6,7 @@ class UserHomeData(CallbackData, prefix='user_home'):
     id: int
 
 
-class UserExchangeData(CallbackData, prefix='user_exchange'):
+class UserExchangeData(CallbackData, prefix='user_ch'):
     id: int
     action: str
     name: str

@@ -60,8 +60,8 @@ class SimpleAPI():
                     )
                 )
                 exception: bool = True
-                code: NoneType = None
-                response_data: NoneType = None
+                code: int = response.status_code
+                response_data: dict = response.json()
             else:
                 exception: bool = False
                 code: int = response.status_code
