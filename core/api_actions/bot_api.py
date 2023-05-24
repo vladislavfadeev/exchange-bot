@@ -1,123 +1,125 @@
+import logging
+import traceback
+from types import NoneType
+from typing import Union
+from httpx import AsyncClient, Response
+from aiogram import Bot, Dispatcher
+from core.middlwares.exceptions import ResponseError
 from core.middlwares.settigns import appSettings
-import httpx
 
-
-headers = {
-    "Authorization": appSettings.apiSettings.authToken
-}
-client = httpx.AsyncClient(
-    base_url=appSettings.apiSettings.baseUrl,
-    headers=headers
-)
 
 
 class SimpleAPI():
 
-    async def get(path, params=None):
-        
-        response = await client.get(path, params=params)
-        return response
+    def __init__(self, bot: Bot, dp: Dispatcher):
+        self.bot = bot
+        self.dp = dp
+        self.client = AsyncClient(
+            base_url=appSettings.apiSettings.baseUrl,
+            headers= {
+                "Authorization": appSettings.apiSettings.authToken
+            }
+        )
+    
+    def responce_processor(func):
+        async def wrapper(self, *args, **kwargs):
+            bot: Bot = self.bot
+            exp_code: list | NoneType = kwargs.get('exp_code')
+            response: Response | NoneType = None
+            method: str | NoneType = None
+            try:
+                response, method = await func(self, **kwargs)
+                if exp_code:
+                    if response.status_code not in exp_code:
+                        raise ResponseError
+                    
+            except Exception as e:
+
+                post_data: dict | NoneType = kwargs.get('data')
+                params: dict | NoneType = kwargs.get('params')
+                path: str = kwargs.get('path')
+                detailUrl: str | NoneType = kwargs.get('detailUrl')
+                det: str = f'/{detailUrl}' if detailUrl else ''
+
+                logging.exception(
+                    f'method: {method}\n'
+                    f'get params:\n{params}\n\n'
+                    f'post / patch data:\n{post_data}\n\n'
+                    f'endpoint: {path}{det}\n\n'
+                    f'{e}\n'
+                )
+                await bot.send_message(
+                    appSettings.botSetting.devStaffId,
+                    text=(
+                        'SimpleAPI raise exception!\n\n'
+                        f'method: {method}\n'
+                        f'get params:\n{params}\n\n'
+                        f'post/patch data:\n{post_data}\n\n'
+                        f'endpoint: {path}{det}\n\n'
+                        f'{traceback.format_exc(limit=1)}\n'
+                    )
+                )
+                exception: bool = True
+                code: NoneType = None
+                response_data: NoneType = None
+            else:
+                exception: bool = False
+                code: int = response.status_code
+                response_data: dict = response.json()
+            data = {
+                'exception': exception,
+                'status_code': code,
+                'response': response_data,
+            }
+            return data
+        return wrapper
 
 
-    async def getDetails(path, detailUrl, params=None):
+    @responce_processor
+    async def get(self, **kwargs):
+        method='GET'
+        path: str = kwargs.get('path')
+        params: dict = kwargs.get('params')
 
-        response = await client.get(
+        response: Response = await self.client.get(
+            path,
+            params=params
+        )
+        return response, method
+
+    @responce_processor
+    async def get_detail(self, **kwargs):
+        method='GET_DETAIL'
+        path: str = kwargs.get('path')
+        detailUrl: str = kwargs.get('detailUrl')
+        params: dict = kwargs.get('params')
+
+        response: Response = await self.client.get(
             f'{path}/{detailUrl}',
             params=params
         )
-        return response
+        return response, method
 
-
-    async def post(path, data):
-
-        response = await client.post(
+    @responce_processor
+    async def post(self, **kwargs):
+        method='POST'
+        path: str = kwargs.get('path')
+        data: dict = kwargs.get('data')
+        response: Response = await self.client.post(
             path,
             data=data
         )
-        return response
+        return response, method
     
-    
-    async def patch(path, detailUrl, data):
-        
-        response = await client.patch(
+    @responce_processor
+    async def patch(self, **kwargs):
+        method='PATCH'
+        path: str = kwargs.get('path')
+        detailUrl: str = kwargs.get('detailUrl')
+        data: dict = kwargs.get('data')
+
+        response: Response = await self.client.patch(
             f'{path}/{detailUrl}',
             data=data
         )
-        return response
-
-    
-
-
-
-
-
-
-
-        # async with aiohttp.ClientSession('http://127.0.0.1:8000/', headers=headers) as session:
-        #     async with session.patch('/api/v1/user/12221') as response:
-
-        #         print("Status:", response.status)
-        #         print("Content-type:", response.headers['content-type'])
-
-        #         html = await response.text()
-        #         print("Body:", html)
-
-
-
-
-
-    
-#     async def get(route, data=None):
-
-#         async with session.get(route) as response:
-#             return await response.json()
-        
-
-#     async def post(route, data):
-
-#         async with session.post(route, data=data) as response:
-#             return await response.json()
-        
-
-#     async def patch(route, data):
-
-#         async with session.patch(route, data=data) as response:
-#             return await response.json()
-
-
-# async def post(route, data):
-
-#     async with session.post(route, data=data) as response:
-#         return await response.json()
-
-
-# async def insert_user_todb(post_data):
-#     async with session.get(f'/api/v1/customer/{post_data["tg_id"]}') as resp:
-#         print(resp.status)
-#         if resp.status == 200:
-#             pass
-#         else:
-#             async with session.post('/api/v1/customer', data=post_data) as response:
-#                 print(response.status)
-
-
-# async def insert_request_todb(post_data):
-#     async with session.post('/api/v1/request', data=post_data) as response:
-#         return await response.json()
-#         # print(response.status, await response.text())
-
-
-# async def get_changers_list():
-#     async with session.get('/api/v1/changers-list') as response:
-#         return await response.json()
-    
-
-# async def insert_response_todb(post_data):
-#     async with session.post('/api/v1/response', data=post_data) as response:
-#         return await response.json()
-        
-
-# async def insert_user_choise_todb(post_data):
-#     async with session.post('/api/v1/customer-choice', data=post_data) as response:
-#         return await response.json()
-    
+        return response, method

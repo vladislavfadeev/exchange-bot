@@ -1,5 +1,6 @@
 import asyncio
 from datetime import datetime
+from typing import Type
 
 from aiogram.fsm.context import FSMContext
 from aiogram.types.callback_query import CallbackQuery
@@ -14,12 +15,13 @@ from core.utils.bot_fsm import FSMSteps
 from core.utils import msg_var as msg
 from core.keyboards import (
     changer_kb,
-    admin_kb,
+    admin_kb
 )
 from core.keyboards.callbackdata import (
     StaffEditData,
     StaffOfficeData,
 )
+from core.utils.notifier import alert_message_sender
 
 
 
@@ -32,8 +34,8 @@ async def staff_show_transfers(
     '''
     '''
     await state.set_state(FSMSteps.STAFF_TRANSFRES)
-    data = await state.get_data()
-    uncompleted_transfers = data.get('uncompleted_transfers')
+    data: dict = await state.get_data()
+    uncompleted_transfers: list = data.get('uncompleted_transfers')
 
     # if not uncompleted_transfers:
 
@@ -57,30 +59,23 @@ async def staff_show_transfers(
         messages = await msg_maker.staff_show_uncompleted_transfers(
             uncompleted_transfers
         )
-        counter = 0
         messageList = []
 
-        for i in range(len(uncompleted_transfers)):
-
-            counter += 1
-            isLatest = True if counter == len(uncompleted_transfers) else False
-            char = uncompleted_transfers[i]
+        for tr in uncompleted_transfers:
 
             self_msg = await bot.send_message(
                 call.from_user.id,
-                text = messages[i],
-                reply_markup = await changer_kb.staff_show_transfers(char['id'])
+                text = await msg_maker.staff_show_uncompleted_transfers(tr),
+                reply_markup = await changer_kb.staff_show_transfers(tr['id'])
             )
-            if isLatest:
-                sep_msg = await bot.send_message(
-                    call.from_user.id,
-                    text = msg.separator,
-                    reply_markup = await changer_kb.sfuff_cancel_button()
-                )
-                messageList.append(sep_msg)
-
             messageList.append(self_msg)
-        
+
+        sep_msg = await bot.send_message(
+            call.from_user.id,
+            text = msg.separator,
+            reply_markup = await changer_kb.sfuff_cancel_button()
+        )
+        messageList.append(sep_msg)        
         await state.update_data(messageList = messageList)
 
     if not uncompleted_transfers:                    # проверить корректность! 
@@ -95,6 +90,7 @@ async def staff_show_transfer_detail(
         call: CallbackQuery,
         state: FSMContext,
         callback_data: StaffEditData,
+        api_gateway: SimpleAPI,
         bot: Bot
 ):
     '''
@@ -110,10 +106,6 @@ async def staff_show_transfer_detail(
             transfer_detail: dict = i
 
     if callback_data.action == 'staff_transfers_get_detail':
-
-        for i in transfers:
-            if i == tr_id:
-                transfer_detail: dict = i
                 
         if messageList:
 
@@ -157,52 +149,55 @@ async def staff_show_transfer_detail(
 
 
     elif callback_data.action == 'staff_transfer_claims':
+        new_list = [i for i in transfers if i['id']!=tr_id]
+        await state.update_data(uncompleted_transfers = new_list)
 
         patch_data = {
             'claims': True
         }
-        await SimpleAPI.patch(
-            r.changerRoutes.transactions,
-            tr_id,
-            patch_data
+        response: dict = await api_gateway.patch(
+            path=r.changerRoutes.transactions,
+            detailUrl=tr_id,
+            data=patch_data,
+            exp_code=[200]
         )
-
-        await bot.send_message(
-            appSettings.botSetting.troubleStaffId,
-            text=f'Обменник не принял перевод пользователя, Заявка {tr_id}',
-            reply_markup= await admin_kb.get_claim_contacts_toadmin(
-                transfer_detail['user'],
-                call.from_user.id
-            )
-        )
-        if transfer_detail['userProofType'] == 'photo':
-            await bot.send_photo(
+        exception: bool = response.get('exception')
+        if not exception:
+            await bot.send_message(
                 appSettings.botSetting.troubleStaffId,
-                photo= transfer_detail['userProof'],
-                caption= f'Подтверждение пользователя. Заявка {tr_id}'
+                text=f'Обменник не принял перевод пользователя, Заявка {tr_id}',
+                reply_markup= await admin_kb.get_claim_contacts_toadmin(
+                    transfer_detail['user'],
+                    call.from_user.id
+                )
             )
-        elif transfer_detail['userProofType'] == 'document':
-            await bot.send_document(
-                appSettings.botSetting.troubleStaffId,
-                document= transfer_detail['userProof'],
-                caption= f'Подтверждение пользователя. Заявка {tr_id}'
+            if transfer_detail['userProofType'] == 'photo':
+                await bot.send_photo(
+                    appSettings.botSetting.troubleStaffId,
+                    photo= transfer_detail['userProof'],
+                    caption= f'Подтверждение пользователя. Заявка {tr_id}'
+                )
+            elif transfer_detail['userProofType'] == 'document':
+                await bot.send_document(
+                    appSettings.botSetting.troubleStaffId,
+                    document= transfer_detail['userProof'],
+                    caption= f'Подтверждение пользователя. Заявка {tr_id}'
+                )
+            await call.message.delete()
+
+            mainMsg = await bot.send_message(
+                call.from_user.id,
+                text = msg.staff_transfer_claims_message,
+                reply_markup= await changer_kb.sfuff_cancel_button()
             )
-        await call.message.delete()
-
-        mainMsg = await bot.send_message(
-            call.from_user.id,
-            text = msg.staff_transfer_claims_message,
-            reply_markup= await changer_kb.sfuff_cancel_button()
-        )
-        await state.update_data(mainMsg = mainMsg)
-        await state.set_state(FSMSteps.STUFF_INIT_STATE)
-
-
-        new_list = [i for i in transfers if i['id']!=tr_id]
-
-        await state.update_data(uncompleted_transfers = new_list)
+            await state.update_data(mainMsg = mainMsg)
+            await state.set_state(FSMSteps.STUFF_INIT_STATE)
+        else:
+            await alert_message_sender(bot, call.from_user.id)
 
     elif callback_data.action == 'staff_transfer_accepted':
+        new_list = [i for i in transfers if i['id']!=tr_id]
+        await state.update_data(uncompleted_transfers = new_list)
 
         proof_type = data.get('proof_type')
         proof_id = data.get('proof_id')
@@ -215,28 +210,30 @@ async def staff_show_transfer_detail(
             'changerAccepted': True
         }
 
-        await SimpleAPI.patch(
-            r.changerRoutes.transactions,
-            tr_id,
-            patch_data
+        response: dict = await api_gateway.patch(
+            path=r.changerRoutes.transactions,
+            detailUrl=tr_id,
+            data=patch_data,
+            exp_code=[200]
         )
-        try:
-            await bot.delete_message(
-                call.message.chat.id,
-                call.message.message_id
+        exception: bool = response.get('exception')
+        if not exception:
+            try:
+                await bot.delete_message(
+                    call.message.chat.id,
+                    call.message.message_id
+                )
+            except:
+                pass
+
+            mainMsg = await bot.send_message(
+                call.from_user.id,
+                text = msg.staff_transfer_accept_success,
+                reply_markup= await changer_kb.sfuff_cancel_button()
             )
-        except:
-            pass
-
-        mainMsg = await bot.send_message(
-            call.from_user.id,
-            text = msg.staff_transfer_accept_success,
-            reply_markup= await changer_kb.sfuff_cancel_button()
-        )
-
-        new_list = [i for i in transfers if i['id']!=tr_id]
-        await state.update_data(mainMsg = mainMsg)
-        await state.update_data(uncompleted_transfers = new_list)
+            await state.update_data(mainMsg = mainMsg)
+        else:
+            await alert_message_sender(bot, call.from_user.id)
 
 
 
@@ -244,37 +241,49 @@ async def staff_transfer_proof_getter(message: Message, state: FSMContext, bot: 
     '''
     '''
     await message.delete()
-    data = await state.get_data()
-    mainMsg = data.get('mainMsg')
-    transfer_id = data.get('ansvered_transfer_id')
-
-    if message.photo:
-
-        fileId = message.photo[-1].file_id
-        proofType = 'photo'
-
-    elif message.document:
-
-        fileId = message.document.file_id
-        proofType = 'document'
-
-    await mainMsg.edit_reply_markup(
-        reply_markup = await changer_kb.staff_show_transfer_detail_accept(transfer_id)
-    )
-    await state.update_data(proof_type = proofType)
-    await state.update_data(proof_id = fileId)
-
-    del_msg = await bot.send_message(
-        message.from_user.id,
-        text = msg.staff_get_proof_success
-    )
-    await asyncio.sleep(3)
+    data: dict = await state.get_data()
+    mainMsg: Message = data.get('mainMsg')
+    transfer_id: int = data.get('ansvered_transfer_id')
     try:
-        await del_msg.delete()
-    except:
-        pass
+        if message.photo:
+            fileId = message.photo[-1].file_id
+            proofType = 'photo'
+        elif message.document:
+            fileId = message.document.file_id
+            proofType = 'document'
+        else:
+            raise TypeError()
+    except TypeError:
+        # inform user about error and delete this message
+        # after 3 seconds 
+        del_msg: Message = await bot.send_message(
+            text=msg.type_error_message
+        )
+        await asyncio.sleep(3)
+        try:
+            await del_msg.delete()
+        except:
+            pass
+    else:
+        await mainMsg.edit_reply_markup(
+            reply_markup = await changer_kb.staff_show_transfer_detail_accept(
+                transfer_id
+            )
+        )
+        await state.update_data(proof_type = proofType)
+        await state.update_data(proof_id = fileId)
 
-    await state.set_state(FSMSteps.STAFF_TRANSFERS_PROOF)
+        del_msg = await bot.send_message(
+            message.from_user.id,
+            text = msg.staff_get_proof_success
+        )
+        await asyncio.sleep(3)
+        try:
+            await del_msg.delete()
+        except:
+            pass
+
+        await state.set_state(FSMSteps.STAFF_TRANSFERS_PROOF)
 
 
 
@@ -286,7 +295,7 @@ async def setup_exchange_handlers(dp: Dispatcher):
 
         staff_transfer_proof_getter,
         FSMSteps.STAFF_TRANSFERS_PROOF,
-        F.content_type.in_({'photo', 'document'})
+        # F.content_type.in_({'photo', 'document'})
 
     )
     dp.callback_query.register(

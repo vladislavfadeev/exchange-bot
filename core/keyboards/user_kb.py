@@ -9,44 +9,49 @@ from core.keyboards.callbackdata import (
 )
 
 
-async def set_sell_currency_button():
+async def set_sell_currency_button(api_gateway: SimpleAPI):
     '''Build InlineKeyboardButton with currency for "start_change" handler.
     '''
-    currency = await SimpleAPI.get(r.keysRoutes.currencyList)
-    builder = InlineKeyboardBuilder()
-
-    for curr in currency.json():
-        if curr['name'] == 'MNT':
-            pass
-        else:
-            builder.button(
-                text=f'Купить {curr["name"]}',
-                callback_data=UserExchangeData(
-                    id=curr['id'],
-                    action='sell_currency',
-                    name=curr['name'],
-                    is_returned=False
-                )
-            )
-            builder.button(
-                text=f'Продать {curr["name"]}',
-                callback_data=UserExchangeData(
-                    id=curr['id'],
-                    action='buy_currency',
-                    name=curr['name'],
-                    is_returned=False
-                )
-            )
-    builder.button(
-        text='↩ Отменить',
-        callback_data= UserHomeData(
-            action='cancel',
-            id=0
-        )
+    response: dict = await api_gateway.get(
+        path=r.keysRoutes.currencyList
     )
-    builder.adjust(2)
+    exception: bool = response.get('exception')
+    if not exception:
+        currency: list = response.get('response')
+        builder = InlineKeyboardBuilder()
 
-    return builder.as_markup()
+        for curr in currency:
+            if curr['name'] == 'MNT':
+                pass
+            else:
+                builder.button(
+                    text=f'Купить {curr["name"]}',
+                    callback_data=UserExchangeData(
+                        id=curr['id'],
+                        action='sell_currency',
+                        name=curr['name'],
+                        is_returned=False
+                    )
+                )
+                builder.button(
+                    text=f'Продать {curr["name"]}',
+                    callback_data=UserExchangeData(
+                        id=curr['id'],
+                        action='buy_currency',
+                        name=curr['name'],
+                        is_returned=False
+                    )
+                )
+        builder.button(
+            text='↩ Отменить',
+            callback_data= UserHomeData(
+                action='cancel',
+                id=0
+            )
+        )
+        builder.adjust(2)
+
+        return builder.as_markup()
 
 
 async def show_offer_list_kb(offer):
@@ -138,7 +143,7 @@ async def set_changer_bank(banks):
 
     builder = InlineKeyboardBuilder()
 
-    for bank in banks.json():
+    for bank in banks:
         builder.button(
             text=bank['name'],
             callback_data=UserExchangeData(
@@ -166,7 +171,7 @@ async def choose_user_bank_from_db(banks):
         )
     )
 
-    for bank in banks.json():
+    for bank in banks:
         builder.button(
             text=f'🏦 {bank["name"]}\n💳 {bank["bankAccount"]}',
             callback_data=UserExchangeData(
@@ -185,7 +190,7 @@ async def choose_bank_name_from_list(banksName):
 
     builder = InlineKeyboardBuilder()
 
-    for bank in banksName.json():
+    for bank in banksName:
         builder.button(
             text=f'{bank["name"]}',
             callback_data=UserExchangeData(
@@ -285,6 +290,22 @@ async def final_transfer_stage():
         callback_data=URLData(
         )
     )
+    builder.button(
+        text='↩ Вернуться на главную',
+        callback_data=UserHomeData(
+            action='cancel',
+            id=0
+        )
+    )
+    builder.adjust(1)
+
+    return builder.as_markup()
+
+
+async def user_cancel_button():
+
+    contact = appSettings.botSetting.troubleStaffId
+    builder = InlineKeyboardBuilder()
     builder.button(
         text='↩ Вернуться на главную',
         callback_data=UserHomeData(

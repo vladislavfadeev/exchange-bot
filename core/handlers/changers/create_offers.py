@@ -1,4 +1,5 @@
 import logging
+from types import NoneType
 from httpx import Response
 
 from aiogram.fsm.context import FSMContext
@@ -19,6 +20,7 @@ from core.keyboards import (
 from core.keyboards.callbackdata import (
     StaffEditData,
 )
+from core.utils.notifier import alert_message_sender
 
 
 
@@ -68,7 +70,6 @@ async def stuff_create_new_offer_rate(message: Message, state: FSMContext):
         value = message.text
         rate = float(value.replace(',', '.').replace(' ', ''))
     except (ValueError, AttributeError) as e:
-        logging.error(e)
         await mainMsg.edit_text(
             text = msg.type_error_msg,
             reply_markup = await changer_kb.sfuff_cancel_button()
@@ -88,6 +89,7 @@ async def stuff_create_new_offer_banks(
         call: CallbackQuery,
         state: FSMContext,
         callback_data: StaffEditData,
+        api_gateway: SimpleAPI,
         bot: Bot
 ):
     '''
@@ -108,54 +110,21 @@ async def stuff_create_new_offer_banks(
         'currency__name': 'MNT'
     }
     # get info from backend
-    try:
-        response_curr: Response = await SimpleAPI.get(
-            r.changerRoutes.banks,
-            params = params_curr
-        )
-        response_ref: Response = await SimpleAPI.get(
-            r.changerRoutes.banks, 
-            params = params_ref
-        )
-        if response_curr.status_code != 200\
-            or response_ref.status_code != 200:
-            raise ResponseError()
-    except ResponseError as e:
-        await call.message.edit_text(
-            text=msg.error_msg,
-            reply_markup= await changer_kb.error_kb(),
-        )
-        await bot.send_message(
-            appSettings.botSetting.devStaffId,
-            text=(
-                'handlers.changers.create_offer.py '
-                '-> stuff_create_new_offer_banks\n'
-                f'{repr(e)}\n'
-                f'{response_curr.json()}'
-                f'{response_ref.json()}'
-            )
-        )
-        logging.exception(
-            f'{e} - {response_ref.json()}'
-            f'{e} - {response_curr.json()}'
-        )
-    except Exception as e:
-        await call.message.edit_text(
-            text=msg.error_msg,
-            reply_markup= await changer_kb.error_kb(),
-        )
-        await bot.send_message(
-            appSettings.botSetting.devStaffId,
-            text=(
-                'handlers.changers.create_offer.py '
-                '-> stuff_create_new_offer_banks\n'
-                f'{repr(e)}'
-            )
-        )
-        logging.exception(e)
-    else:
-        banks: list = response_curr.json()
-        banks.extend(response_ref.json())
+    response_curr: dict = await api_gateway.get(
+        path=r.changerRoutes.banks,
+        params=params_curr,
+        exp_code=[200]
+    )
+    response_ref: dict = await api_gateway.get(
+        r.changerRoutes.banks, 
+        params = params_ref,
+        exp_code=[200]
+    )
+    exception_curr: bool = response_curr.get('exception')
+    exception_ref: bool = response_ref.get('exception')
+    if not exception_curr and not exception_ref:
+        banks: list = response_curr.get('response')
+        banks.extend(response_ref.get('response'))
         # if user is in the handler for first time
         if callback_data.action == 'create_new_offer_banks':
             await call.answer()
@@ -177,8 +146,8 @@ async def stuff_create_new_offer_banks(
                 )
         elif callback_data.action == 'staff_set_banks':
             await call.answer()
-            account_id = callback_data.id
-            accounts = data.get('accounts')
+            account_id: int = callback_data.id
+            accounts: dict | NoneType = data.get('accounts')
             # create accounts dict if it is not exists in bot state
             if not accounts:
                 accounts = {}
@@ -225,6 +194,8 @@ async def stuff_create_new_offer_banks(
                     text = msg.staff_will_set_amount,
                     reply_markup= await changer_kb.staff_will_set_amount_kb()
                 )
+    else:
+        await alert_message_sender(bot, call.from_user.id)
 
 
 
@@ -396,6 +367,7 @@ async def stuff_create_new_offer_final(
         call: CallbackQuery,
         state: FSMContext,
         callback_data: StaffEditData,
+        api_gateway: SimpleAPI,
         bot: Bot
 ):
     '''
@@ -440,47 +412,19 @@ async def stuff_create_new_offer_final(
         if callback_data.action == 'staff_post_offet_non_active':
             # if user want save new offer as draft
             post_data['isActive'] = False
-        try:
-            new_offer: Response = await SimpleAPI.post(
-                r.changerRoutes.myOffers,
-                post_data
-            )
-            if new_offer.status_code != 201:
-                raise ResponseError()
-        except ResponseError as e:
-            await call.message.edit_text(
-                text=msg.error_msg,
-                reply_markup= await changer_kb.error_kb(),
-            )
-            await bot.send_message(
-                appSettings.botSetting.devStaffId,
-                text=(
-                    'handlers.changers.create_offer.py '
-                    '-> stuff_create_new_offer_final\n'
-                    f'{repr(e)}\n'
-                    f'{new_offer.json()}'
-                )
-            )
-            logging.exception(f'{e} - {new_offer.json()}')
-        except Exception as e:
-            await call.message.edit_text(
-                text=msg.error_msg,
-                reply_markup= await changer_kb.error_kb(),
-            )
-            await bot.send_message(
-                appSettings.botSetting.devStaffId,
-                text=(
-                    'handlers.changers.create_offer.py '
-                    '-> stuff_create_new_offer_final\n'
-                    f'{repr(e)}'
-                )
-            )
-            logging.exception(e)
-        else:
+        response: dict = await api_gateway.post(
+            path=r.changerRoutes.myOffers,
+            data=post_data,
+            exp_code=[201]
+        )
+        exception: bool = response.get('exception')
+        if not exception:
             await call.message.edit_text(
                 text=msg.staff_create_new_offer_succes_non_active,
                 reply_markup=await changer_kb.staff_create_new_offer_succes()
             )
+        else:
+            await alert_message_sender(bot, call.from_user.id)
 
 
 

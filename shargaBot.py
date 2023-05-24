@@ -7,7 +7,9 @@ from aiogram.enums.parse_mode import ParseMode
 
 from core.handlers import setup_handlers
 from core.utils.notifier import main_msg_updater
+from core.utils.returner import main_msg_returner
 from core.middlwares.settigns import appSettings
+from core.api_actions.bot_api import SimpleAPI
 from core.middlwares import setup_middleware
 from create_storage import scheduler, storage, LOGGING_CONFIG
 
@@ -17,6 +19,7 @@ async def updater_job():
     job_list: list = scheduler.get_jobs()
     job_id_list: list = [job.id for job in job_list]
     main_msg_updater_id = 'main_msg_updater'
+    returner_id = 'changer_returner'
 
     if main_msg_updater_id not in job_id_list:
 
@@ -26,6 +29,14 @@ async def updater_job():
             day_of_week= 'mon-sun',
             hour='2, 6',
             id=main_msg_updater_id,
+        )
+    if returner_id not in job_id_list:
+
+        scheduler.add_job(
+            main_msg_returner,
+            'interval',
+            seconds=30,
+            id=returner_id
         )
 
 
@@ -37,7 +48,14 @@ async def main():
     )
     dp = Dispatcher(storage=storage)
 
-    await setup_middleware(bot, dp, scheduler)
+    api_gateway = SimpleAPI(bot=bot, dp=dp)
+
+    await setup_middleware(
+        bot=bot,
+        dp=dp,
+        api_gateway=api_gateway,
+        scheduler=scheduler
+    )
     await setup_handlers(dp)
 
     bot.session.json_loads = jsonpickle.loads
@@ -45,6 +63,7 @@ async def main():
 
     scheduler.ctx.add_instance(bot, declared_class=Bot)
     scheduler.ctx.add_instance(dp, declared_class=Dispatcher)
+    scheduler.ctx.add_instance(api_gateway, declared_class=SimpleAPI)
     
     try:
         
@@ -57,6 +76,8 @@ async def main():
         #     appSettings.botSetting.adminId,
         #     'Bot has been stoped!'
         # )
+        scheduler.remove_job('main_msg_updater')
+        scheduler.remove_job('changer_returner')
         await bot.session.close()
 
 

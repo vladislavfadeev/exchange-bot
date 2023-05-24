@@ -1,3 +1,4 @@
+from types import NoneType
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import Command
@@ -13,16 +14,20 @@ from core.utils import  msg_var as msg
 from core.utils.bot_fsm import FSMSteps
 from core.middlwares.routes import r    # Dataclass whith all api routes
 from core.utils.notifier import (
+    alert_message_sender,
     transfers_getter_changer
 )
 import asyncio
+
+
+
 
 
 async def command_start(
         message: Message,
         state: FSMContext,
         bot: Bot, 
-        dp: Dispatcher
+        api_gateway: SimpleAPI
 ):
     '''
     Handler ansver on command "/start" and gives for user message
@@ -38,81 +43,83 @@ async def command_start(
     is_staff: bool = data.get('isStuff')
     await state.update_data(messageList=[])
 
-    # Send user identification data to db
-    await SimpleAPI.post(
-        r.homeRoutes.userInit,
-        {
+    # Send user identification data to backend
+    response: dict = await api_gateway.post(
+        path = r.homeRoutes.userInit,
+        data = {
             'tg': message.from_user.id,
             "isActive": True
-        }
+        },
+        exp_code = [200, 400]
     )
-    # if mainMsg is exists - refresh it for correctly bot working
-    if mainMsg:
-        try:
-            await bot.delete_message(
-                mainMsg.chat.id,
-                mainMsg.message_id
-            )
-        except:
-            pass
-        # if user send command /start from any message list - delete it
-        if msg_list:
-            try:   
-                for i in msg_list:
-                    i: Message
-                    await bot.delete_message(
-                        i.chat.id,
-                        i.message_id
-                    )
+    # get request status
+    exception: bool = response.get('exception')
+    if not exception:
+        # if mainMsg is exists - refresh it for correctly bot working
+        if mainMsg:
+            try:
+                await bot.delete_message(
+                    mainMsg.chat.id,
+                    mainMsg.message_id
+                )
             except:
                 pass
-        # if user is staff - check state for new uncompleted 
-        # transfers for him and show it in his main message
-        if is_staff:
-            transfers: list = data.get('uncompleted_transfers')
-            mainMsg: Message = await bot.send_message(
+            # if user send command /start from any message list - delete it
+            if msg_list:
+                try:   
+                    for i in msg_list:
+                        i: Message
+                        await bot.delete_message(
+                            i.chat.id,
+                            i.message_id
+                        )
+                except:
+                    pass
+            # if user is staff - check state for new uncompleted 
+            # transfers for him and show it in his main message
+            if is_staff:
+                transfers: list = data.get('uncompleted_transfers')
+                mainMsg: Message = await bot.send_message(
+                    message.from_user.id,
+                    text = await msg_maker.staff_welcome(transfers),
+                    reply_markup = await changer_kb.staff_welcome_button(
+                        transfers
+                    )
+                )
+                await state.update_data(mainMsg = mainMsg)
+                await state.set_state(FSMSteps.STAFF_HOME_STATE)
+        # if user is not staff - send him usual start message
+        # or he send commad /start for the first time
+        if not mainMsg or not is_staff:
+            mainMsg =  await bot.send_message(
                 message.from_user.id,
-                text = await msg_maker.staff_welcome(transfers),
-                reply_markup = await changer_kb.staff_welcome_button(
-                    transfers
+                text= await msg_maker.start_message(
+                    message.from_user.id,
+                    state
+                ),
+                reply_markup= await home_kb.user_home_inline_button(
+                    message.from_user.id,
+                    state
                 )
             )
             await state.update_data(mainMsg = mainMsg)
-            await state.set_state(FSMSteps.STAFF_HOME_STATE)
-    # if user is not staff - send him usual start message
-    # or he send commad /start for the first time
-    if not mainMsg or not is_staff:
-        mainMsg =  await bot.send_message(
-            message.from_user.id,
-            text= await msg_maker.start_message(
-                message.from_user.id,
-                state
-            ),
-            reply_markup= await home_kb.user_home_inline_button(
-                message.from_user.id,
-                state
-            )
-        )
-        await state.update_data(mainMsg = mainMsg)
-        await state.set_state(FSMSteps.USER_INIT_STATE)
-            
+            await state.set_state(FSMSteps.USER_INIT_STATE)
+    else:
+        await alert_message_sender(bot, message.from_user.id)
 
 
 async def command_login(
         message: Message,
         state: FSMContext,
         apscheduler: AsyncIOScheduler,
+        api_gateway: SimpleAPI,
         bot: Bot
 ):
     '''
     Handler ansver on command "/login" and check user id in backend.
     If he is staff - bot send message with personal menu for changers.
     '''
-    # send request for check user id
-    response = await SimpleAPI.getDetails(
-        r.changerRoutes.changerProfile,
-        message.from_user.id
-    )
+
     data: dict = await state.get_data()
     mainMsg: Message = data.get('mainMsg')
     messageList: list = data.get('messageList')
@@ -122,85 +129,103 @@ async def command_login(
     # if bot state have not information about current user status,
     # or user is not staff
     if not isStuff:
-        if response.status_code == 404:
-            # if user is not staff bot will tell him about it
-            await message.delete()
-            info_msg = await message.answer(
-                text=msg.staff_404
-            )
-            await asyncio.sleep(3)
-            try:
-                await info_msg.delete()
-            except:
-                pass
-
-        elif response.status_code == 200:
-            # if backend replied that current user is a staff
-            getter_id = f'user_getter-{message.from_user.id}'
-            job_list: list = [job.id for job in apscheduler.get_jobs()]
-            # delete command message
-            await message.delete()
-            if getter_id in job_list:
-                apscheduler.pause_job(getter_id)
-            if uncompleted_transfers is None:
-                await state.update_data(uncompleted_transfers = [])
-            if new_transfer is None:
-                await state.update_data(new_transfer = [])
-            # user can send login commad from any message list.
-            # if he do that - bot delete all this messages
-            if messageList:
-                for i in messageList:
-                    i: Message
-                    try:
-                        await i.delete()
-                    except:
-                        pass
-            # if mainMsg is exists - refresh it for correctly bot working
-            if mainMsg:
+        # send request for check user id
+        response: dict = await api_gateway.get_detail(
+            path=r.changerRoutes.changerProfile,
+            detailUrl=message.from_user.id,
+            exp_code=[200, 404]
+        )
+        code: int = response.get('status_code')
+        print(type(code), code)
+        exception: bool = response.get('exception')
+        if not exception:
+            if code == 404:
+                # if user is not staff bot will tell him about it
+                await message.delete()
+                info_msg = await message.answer(
+                    text=msg.staff_404
+                )
+                await asyncio.sleep(3)
                 try:
-                    await mainMsg.delete()
+                    await info_msg.delete()
                 except:
                     pass
 
-            changer_id = message.from_user.id
-            patch_data = {
-                'online': True
-            }
-            # change staff status to online
-            await SimpleAPI.patch(
-                r.changerRoutes.changerProfile,
-                changer_id,
-                patch_data
-            )
-            # send staff welcome message and save it in to bot state
-            mainMsg: Message = await bot.send_message(
-                message.from_user.id,
-                text = await msg_maker.staff_welcome(
-                    uncompleted_transfers
-                ),
-                reply_markup = await changer_kb.staff_welcome_button(
-                    uncompleted_transfers
-                )
-            )
-            await state.update_data(mainMsg = mainMsg)
-            await state.update_data(isStuff = True)
-            await state.set_state(FSMSteps.STAFF_HOME_STATE)
-            # there bot add changer notifier to job list if
-            # it is not in list
-            getter_id = f'changer_getter-{message.from_user.id}'
-            job_list: list = apscheduler.get_jobs()
-            job_id_list: list = [job.id for job in job_list]
+            elif code == 200:
+                # if backend replied that current user is a staff
+                getter_id = f'user_getter-{message.from_user.id}'
+                job_list: list = [job.id for job in apscheduler.get_jobs()]
+                # delete command message
+                await message.delete()
+                if getter_id in job_list:
+                    apscheduler.pause_job(getter_id)
+                if uncompleted_transfers is None:
+                    await state.update_data(uncompleted_transfers = [])
+                if new_transfer is None:
+                    await state.update_data(new_transfer = [])
+                # user can send login commad from any message list.
+                # if he do that - bot delete all this messages
+                if messageList:
+                    for i in messageList:
+                        i: Message
+                        try:
+                            await i.delete()
+                        except:
+                            pass
+                # if mainMsg is exists - refresh it 
+                # for correctly bot working
+                if mainMsg:
+                    try:
+                        await mainMsg.delete()
+                    except:
+                        pass
 
-            if getter_id not in job_id_list:
-                apscheduler.add_job(
-                    transfers_getter_changer,
-                    'interval',
-                    minutes=1,
-                    id = getter_id,
-                    kwargs={
-                        'changer_id': changer_id,
-                    }
+                changer_id = message.from_user.id
+                patch_data = {
+                    'online': True
+                }
+                # change staff status to online
+                response: dict = await api_gateway.patch(
+                    path=r.changerRoutes.changerProfile,
+                    detailUrl=changer_id,
+                    data=patch_data,
+                    exp_code=[200]
                 )
+                exception: bool = response.get('exception')
+                if not exception:
+                    # send staff welcome message and save it in to bot state
+                    mainMsg: Message = await bot.send_message(
+                        message.from_user.id,
+                        text = await msg_maker.staff_welcome(
+                            uncompleted_transfers
+                        ),
+                        reply_markup = await changer_kb.staff_welcome_button(
+                            uncompleted_transfers
+                        )
+                    )
+                    await state.update_data(mainMsg = mainMsg)
+                    await state.update_data(isStuff = True)
+                    await state.set_state(FSMSteps.STAFF_HOME_STATE)
+                    # there bot add changer notifier to job list if
+                    # it is not in list
+                    getter_id = f'changer_getter-{message.from_user.id}'
+                    job_list: list = apscheduler.get_jobs()
+                    job_id_list: list = [job.id for job in job_list]
+
+                    if getter_id not in job_id_list:
+                        apscheduler.add_job(
+                            transfers_getter_changer,
+                            'interval',
+                            minutes=1,
+                            id = getter_id,
+                            kwargs={
+                                'changer_id': changer_id,
+                            }
+                        )
+                else:
+                    await alert_message_sender(bot, message.from_user.id)
+        else:
+            await alert_message_sender(bot, message.from_user.id)
     # if bot state have information about current user
     elif isStuff:
         await message.delete()
@@ -221,7 +246,7 @@ async def command_logout(
         state: FSMContext,
         apscheduler: AsyncIOScheduler,
         bot: Bot,
-        dp: Dispatcher
+        api_gateway: SimpleAPI
 ):
     '''
     React on /logout command. If user was logged in
@@ -267,31 +292,36 @@ async def command_logout(
         )
         # set offline staff status
         patch_data = {'online': False}
-        await SimpleAPI.patch(
-            r.changerRoutes.changerProfile,
-            message.from_user.id,
-            patch_data
+        response: dict = await api_gateway.patch(
+            path=r.changerRoutes.changerProfile,
+            detailUrl=message.from_user.id,
+            data=patch_data,
+            exp_code=[200]
         )
-        # fix all changes in bot state
-        await state.update_data(mainMsg = mainMsg)
-        await state.update_data(isStuff = False)
-        await state.set_state(FSMSteps.USER_INIT_STATE)
-        # check existense user notifier job in job list. If it is
-        # exist - resume this job.
-        getter_id = f'user_getter-{message.from_user.id}'
-        job_list: list = [job.id for job in apscheduler.get_jobs()]
-        if getter_id in job_list:
-            apscheduler.resume_job(getter_id)
-        # remove other jobs from job list
-        apscheduler.remove_job(
-            f'changer_getter-{message.from_user.id}'
-        )
-        try:
+        exception: bool = response.get('exception')
+        if not exception:
+            # fix all changes in bot state
+            await state.update_data(mainMsg = mainMsg)
+            await state.update_data(isStuff = False)
+            await state.set_state(FSMSteps.USER_INIT_STATE)
+            # check existense user notifier job in job list. If it is
+            # exist - resume this job.
+            getter_id = f'user_getter-{message.from_user.id}'
+            job_list: list = [job.id for job in apscheduler.get_jobs()]
+            if getter_id in job_list:
+                apscheduler.resume_job(getter_id)
+            # remove other jobs from job list
             apscheduler.remove_job(
-                f'changer_notifier-{message.from_user.id}'
+                f'changer_getter-{message.from_user.id}'
             )
-        except:
-            pass
+            try:
+                apscheduler.remove_job(
+                    f'changer_notifier-{message.from_user.id}'
+                )
+            except:
+                pass
+        else:
+            await alert_message_sender(bot, message.from_user.id)
     # if user have not staff status
     else:
         del_msg = await bot.send_message(
@@ -311,7 +341,6 @@ async def user_main_menu(
         state: FSMContext,
         callback_data: UserHomeData,
         bot: Bot, 
-        dp: Dispatcher
 ):
     '''
     Show start message for users depending of his status
@@ -396,7 +425,9 @@ async def work_time(
 
 
 async def del_not_handled_message(message: Message, bot: Bot):
-
+    '''
+    Service handler.
+    '''
     bill = message.text
     await message.delete()
     del_msg = await bot.send_message(

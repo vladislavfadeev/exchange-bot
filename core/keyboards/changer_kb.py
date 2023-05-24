@@ -109,42 +109,47 @@ async def sfuff_cancel_button():
     return builder.as_markup() 
 
 
-async def set_sell_currency_button():
+async def set_sell_currency_button(api_gateway: SimpleAPI):
     '''
     '''
-    currency = await SimpleAPI.get(r.keysRoutes.currencyList)
-    builder = InlineKeyboardBuilder()
-
-    for curr in currency.json():
-        if curr['name'] == 'MNT':
-            pass
-        else:
-            builder.button(
-                text=f'Продажа {curr["name"]}',
-                callback_data=StaffEditData(
-                    id=curr['id'],
-                    value=curr['name'],
-                    action='new_sell_offer_currency'
-                )
-            )
-            builder.button(
-                text=f'Покупка {curr["name"]}',
-                callback_data=StaffEditData(
-                    id=curr['id'],
-                    value=curr['name'],
-                    action='new_buy_offer_currency'
-                )
-            )
-    builder.button(
-        text='↩ Отменить',
-        callback_data= UserHomeData(
-            action='cancel',
-            id=0
-        )
+    response: dict = await api_gateway.get(
+        path=r.keysRoutes.currencyList
     )
-    builder.adjust(2)
+    exception: bool = response.get('exception')
+    if not exception:
+        currency: list = response.get('response')
+        builder = InlineKeyboardBuilder()
 
-    return builder.as_markup()
+        for curr in currency:
+            if curr['name'] == 'MNT':
+                pass
+            else:
+                builder.button(
+                    text=f'Продажа {curr["name"]}',
+                    callback_data=StaffEditData(
+                        id=curr['id'],
+                        value=curr['name'],
+                        action='new_sell_offer_currency'
+                    )
+                )
+                builder.button(
+                    text=f'Покупка {curr["name"]}',
+                    callback_data=StaffEditData(
+                        id=curr['id'],
+                        value=curr['name'],
+                        action='new_buy_offer_currency'
+                    )
+                )
+        builder.button(
+            text='↩ Отменить',
+            callback_data= UserHomeData(
+                action='cancel',
+                id=0
+            )
+        )
+        builder.adjust(2)
+
+        return builder.as_markup()
 
 
 

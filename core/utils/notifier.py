@@ -1,3 +1,4 @@
+import asyncio
 from aiogram import Bot, Dispatcher
 from core.keyboards import changer_kb
 from core.utils import msg_maker
@@ -7,7 +8,7 @@ from aiogram.fsm.storage.base import StorageKey
 from aiogram.types import Message
 from core.middlwares.routes import r    # Dataclass whith all api routes
 from core.api_actions.bot_api import SimpleAPI
-from core.utils import msg_var
+from core.utils import  msg_var as msg
 from core.keyboards import home_kb
 from create_storage import scheduler
 import logging
@@ -15,7 +16,11 @@ import logging
 
 
 
-async def changer_notifier(changer_id: int, bot: Bot, dp: Dispatcher):
+async def changer_notifier(
+        changer_id: int,
+        bot: Bot,
+        dp: Dispatcher
+    ):
     '''
     '''
     state: FSMContext = FSMContext(
@@ -66,7 +71,8 @@ async def changer_notifier(changer_id: int, bot: Bot, dp: Dispatcher):
 async def transfers_getter_changer(
         changer_id: int,
         bot: Bot,
-        dp: Dispatcher
+        dp: Dispatcher,
+        api_gateway: SimpleAPI
     ):
     '''
     '''
@@ -85,59 +91,67 @@ async def transfers_getter_changer(
         'isCompleted': False,
         'changerAccepted': False
     }
-    response = await SimpleAPI.get(
-        r.changerRoutes.transactions,
-        params=params
+    response: dict = await api_gateway.get(
+        path=r.changerRoutes.transactions,
+        params=params,
+        exp_code=[200]
     )
-    new_user_transfers: dict = response.json()
-    data: dict = await state.get_data()
-    transfers: list = data.get('uncompleted_transfers')
-    mainMsg: Message = data.get('mainMsg')
-    current_state: FSMSteps = await state.get_state()
-    home_state: FSMSteps = FSMSteps.STAFF_HOME_STATE
-    if transfers != new_user_transfers:
+    exception: bool = response.get('exception')
+    if not exception:
+        new_user_transfers: dict = response.get('response')
+        data: dict = await state.get_data()
+        transfers: list = data.get('uncompleted_transfers')
+        mainMsg: Message = data.get('mainMsg')
+        current_state: FSMSteps = await state.get_state()
+        home_state: FSMSteps = FSMSteps.STAFF_HOME_STATE
+        if transfers != new_user_transfers:
 
-        await state.update_data(
-            uncompleted_transfers = new_user_transfers
-        )
-        if current_state == home_state:
-            try:
-                await bot.delete_message(
+            await state.update_data(
+                uncompleted_transfers = new_user_transfers
+            )
+            if current_state == home_state:
+                try:
+                    await bot.delete_message(
+                        mainMsg.chat.id,
+                        mainMsg.message_id
+                    )
+                except:
+                    pass
+                alertMsg: Message = await bot.send_message(
                     mainMsg.chat.id,
-                    mainMsg.message_id
+                    text= await msg_maker.staff_welcome(
+                        transfers
+                    ),
+                    reply_markup= await changer_kb.staff_welcome_button(
+                        transfers
+                    )
                 )
-            except:
-                pass
-            alertMsg: Message = await bot.send_message(
-                mainMsg.chat.id,
-                text= await msg_maker.staff_welcome(
-                    transfers
-                ),
-                reply_markup= await changer_kb.staff_welcome_button(
-                    transfers
+                await state.update_data(mainMsg = alertMsg)
+                
+            changer_notifier_id = f'changer_notifier-{changer_id}'
+            job_list: list = scheduler.get_jobs()
+            job_id_list: list = [job.id for job in job_list]
+
+            if changer_notifier_id not in job_id_list:
+
+                scheduler.add_job(
+                    changer_notifier,
+                    'interval',
+                    minutes = 2,
+                    id = changer_notifier_id,
+                    kwargs={
+                        'changer_id': changer_id,
+                    }
                 )
-            )
-            await state.update_data(mainMsg = alertMsg)
-            
-        changer_notifier_id = f'changer_notifier-{changer_id}'
-        job_list: list = scheduler.get_jobs()
-        job_id_list: list = [job.id for job in job_list]
-
-        if changer_notifier_id not in job_id_list:
-
-            scheduler.add_job(
-                changer_notifier,
-                'interval',
-                minutes = 2,
-                id = changer_notifier_id,
-                kwargs={
-                    'changer_id': changer_id,
-                }
-            )
 
 
 
-async def transfers_getter_user(user_id: int, bot: Bot, dp: Dispatcher):
+async def transfers_getter_user(
+        user_id: int,
+        bot: Bot,
+        dp: Dispatcher,
+        api_gateway: SimpleAPI
+    ):
     '''
     '''
     state: FSMContext = FSMContext(
@@ -155,38 +169,42 @@ async def transfers_getter_user(user_id: int, bot: Bot, dp: Dispatcher):
         'isCompleted': False,
         'changerAccepted': True
     }
-    response = await SimpleAPI.get(
-        r.userRoutes.transactions,
-        params=params
+    response: dict = await api_gateway.get(
+        path=r.userRoutes.transactions,
+        params=params,
+        exp_code=[200]
     )
-    new_events: dict = response.json()
-    data: dict = await state.get_data()
-    user_events: dict = data.get('user_events')
-    current_state = await state.get_state()
-    mainMsg: Message = data.get('mainMsg')
+    exception: bool = response.get('exception')
+    new_events: dict = response.get('response')
+    if not exception:
+        
+        data: dict = await state.get_data()
+        user_events: dict = data.get('user_events')
+        current_state = await state.get_state()
+        mainMsg: Message = data.get('mainMsg')
 
-    if user_events != new_events and\
-        new_events:
+        if user_events != new_events and\
+            new_events:
 
-        await state.update_data(
-            user_events = new_events
-        )
-
-        if current_state == FSMSteps.USER_INIT_STATE:
-            try:
-                await bot.delete_message(
-                    mainMsg.chat.id,
-                    mainMsg.message_id
-                )
-            except:
-                pass
-
-            alertMsg: Message = await bot.send_message(
-                mainMsg.chat.id,
-                text= await msg_maker.start_message(user_id, bot, dp),
-                reply_markup= await home_kb.user_home_inline_button(user_id, bot, dp)
+            await state.update_data(
+                user_events = new_events
             )
-            await state.update_data(mainMsg = alertMsg)
+
+            if current_state == FSMSteps.USER_INIT_STATE:
+                try:
+                    await bot.delete_message(
+                        mainMsg.chat.id,
+                        mainMsg.message_id
+                    )
+                except:
+                    pass
+
+                alertMsg: Message = await bot.send_message(
+                    mainMsg.chat.id,
+                    text= await msg_maker.start_message(user_id, bot, dp),
+                    reply_markup= await home_kb.user_home_inline_button(user_id, bot, dp)
+                )
+                await state.update_data(mainMsg = alertMsg)
 
     elif not new_events:
 
@@ -196,12 +214,14 @@ async def transfers_getter_user(user_id: int, bot: Bot, dp: Dispatcher):
             'isCompleted': False,
             'changerAccepted': False
         }
-        response = await SimpleAPI.get(
-            r.userRoutes.transactions,
-            params=params
+        response: dict = await api_gateway.get(
+            path=r.userRoutes.transactions,
+            params=params,
+            exp_code=[200]
         )
-
-        if not response.json():
+        exception: bool = response.get('exception')
+        response_data: dict = response.get('response')
+        if not response_data and not exception:
 
             scheduler.remove_job(f'user_getter-{user_id}')
 
@@ -219,43 +239,67 @@ async def transfers_getter_user(user_id: int, bot: Bot, dp: Dispatcher):
 
 
 
-async def main_msg_updater(bot: Bot, dp: Dispatcher):
+async def main_msg_updater(
+        bot: Bot,
+        dp: Dispatcher,
+        api_gateway: SimpleAPI
+    ):
     '''
     '''
-    response = await SimpleAPI.get(r.homeRoutes.userInit)
-    id_list: list = response.json()
+    response: dict = await api_gateway.get(
+        path=r.homeRoutes.userInit
+    )
+    exception: bool = response.get('exception')
+    if not exception:
+        id_list: list = response.get('response')
 
-    for id in id_list:
-        state: FSMContext = FSMContext(
-            bot=bot,
-            storage=dp.storage,
-            key=StorageKey(
-                chat_id=id,
-                user_id=id,  
-                bot_id=bot.id
+        for id in id_list:
+            state: FSMContext = FSMContext(
+                bot=bot,
+                storage=dp.storage,
+                key=StorageKey(
+                    chat_id=id,
+                    user_id=id,  
+                    bot_id=bot.id
+                )
             )
+            data: dict = await state.get_data()
+            mainMsg: Message = data.get('mainMsg')
+
+            try:
+                await bot.delete_message(
+                    mainMsg.chat.id,
+                    mainMsg.message_id
+                )
+            except:
+                pass
+
+            else:
+                mainMsg = await bot.send_message(
+                    id,
+                    text = mainMsg.text,
+                    reply_markup = mainMsg.reply_markup,
+                    disable_notification=True
+                )
+                await state.update_data(mainMsg = mainMsg)
+
+
+
+async def alert_message_sender(bot: Bot, user_id: int):
+    '''
+    '''
+    alert: Message = await bot.send_message(
+        user_id,
+        text=msg.error_msg
+    )
+    await asyncio.sleep(3)
+    try:
+        await bot.delete_message(
+            alert.chat.id,
+            alert.message_id
         )
-        data: dict = await state.get_data()
-        mainMsg: Message = data.get('mainMsg')
-
-        try:
-            await bot.delete_message(
-                mainMsg.chat.id,
-                mainMsg.message_id
-            )
-        except Exception as e:
-            logging.exception(e)
-
-        else:
-            mainMsg = await bot.send_message(
-                id,
-                text = mainMsg.text,
-                reply_markup = mainMsg.reply_markup,
-                disable_notification=True
-            )
-            await state.update_data(mainMsg = mainMsg)
-
-
+    except:
+        pass
 
 
 

@@ -7,6 +7,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.base import StorageKey
 from apscheduler_di import ContextSchedulerDecorator
 
+from core.api_actions.bot_api import SimpleAPI
+
 
 
 class InstanceContextMiddleware(BaseMiddleware):
@@ -14,10 +16,12 @@ class InstanceContextMiddleware(BaseMiddleware):
     def __init__(
         self,
         dp: Dispatcher,
+        api_gateway: SimpleAPI,
         scheduler: ContextSchedulerDecorator
     ):
         super().__init__()
         self._scheduler = scheduler
+        self._api_gateway = api_gateway
         self._dp = dp
 
     async def __call__(
@@ -27,6 +31,7 @@ class InstanceContextMiddleware(BaseMiddleware):
             data:Dict[str, Any]
         ):
         data["apscheduler"] = self._scheduler
+        data['api_gateway'] = self._api_gateway
         data["dp"] = self._dp
         return await handler(event, data)
     
@@ -59,6 +64,6 @@ class LastActionMiddleware(BaseMiddleware):
                 bot_id=self._bot.id
             )
         )
-        update_time: dict[int, datetime] = {}
+        update_time: datetime = datetime.now()
         await state.update_data(last_action = update_time)
         return await handler(event, data)

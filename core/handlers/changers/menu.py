@@ -1,16 +1,11 @@
-import logging
-from httpx import Response
-
 from aiogram.fsm.context import FSMContext
 from aiogram.types.callback_query import CallbackQuery
 from aiogram.types import Message
 from aiogram import F, Bot, Dispatcher
 
-from core.middlwares.exceptions import ResponseError
 from core.middlwares.routes import r    # Dataclass whith all api routes
 from core.utils import msg_maker
 from core.api_actions.bot_api import SimpleAPI
-from core.middlwares.settigns import appSettings
 from core.utils.bot_fsm import FSMSteps
 from core.utils import msg_var as msg
 from core.keyboards import (
@@ -19,13 +14,13 @@ from core.keyboards import (
 from core.keyboards.callbackdata import (
     StaffOfficeData,
 )
+from core.utils.notifier import alert_message_sender
 
 
 
 async def offer_menu(
         call: CallbackQuery,
         state: FSMContext,
-        callback_data: StaffOfficeData,
         bot: Bot
 ):
     '''
@@ -68,6 +63,7 @@ async def offer_menu_give_result(
         call: CallbackQuery,
         state: FSMContext,
         callback_data: StaffOfficeData,
+        api_gateway: SimpleAPI,
         bot: Bot
 ):
     '''
@@ -76,7 +72,9 @@ async def offer_menu_give_result(
         # start to create new offer
         await call.message.edit_text(
             text= await msg_maker.stuff_set_currency(),
-            reply_markup= await changer_kb.set_sell_currency_button()
+            reply_markup= await changer_kb.set_sell_currency_button(
+                api_gateway
+            )
         )
     else:
         # if user want see or chage alailable offers.
@@ -96,43 +94,14 @@ async def offer_menu_give_result(
                 }
                 draft: bool = True
         # try to get data from backend
-        try:
-            offers: Response = await SimpleAPI.get(
-                r.changerRoutes.myOffers,
-                params
-            )
-            if offers.status_code != 200:
-                raise ResponseError()
-        except ResponseError as e:
-            await call.message.edit_text(
-                text=msg.error_msg,
-                reply_markup= await changer_kb.error_kb(),
-            )
-            await bot.send_message(
-                appSettings.botSetting.devStaffId,
-                text=(
-                    'handlers.changers.menu.py - '
-                    'offer_menu_give_result\n'
-                    f'{repr(e)}\n'
-                    f'{offers.json()}'
-                )
-            )
-            logging.exception(f'{e} - {offers.json()}')
-        except Exception as e:
-            await call.message.edit_text(
-                text=msg.error_msg,
-                reply_markup= await changer_kb.error_kb(),
-            )
-            await bot.send_message(
-                appSettings.botSetting.devStaffId,
-                text=(
-                    'handlers.changers.menu.py - offer_menu_give_result\n'
-                    f'{repr(e)}'
-                )
-            )
-            logging.exception(e)
-        else:
-            offer_list: list = offers.json()
+        response: dict = await api_gateway.get(
+            path=r.changerRoutes.myOffers,
+            params=params,
+            exp_code=[200]
+        )
+        exception: bool = response.get('exception')
+        if not exception:
+            offer_list: list = response.get('response')
             if offer_list:
                 # if response is not empty
                 await call.message.delete()
@@ -164,6 +133,8 @@ async def offer_menu_give_result(
                     text = msg.stuff_zero_offer,
                     reply_markup = await changer_kb.sfuff_cancel_button()
                 )
+        else:
+            await alert_message_sender(bot, call.from_user.id)
 
 
 

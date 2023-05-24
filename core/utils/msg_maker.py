@@ -22,10 +22,13 @@ async def start_message(id: int, state: FSMContext):
 
 
 
-async def offer_list_msg_maker(offer):
+async def offer_list_msg_maker(offer: dict):
+
     minAmount = 'Любая' if offer['minAmount'] == None else f"{offer['minAmount']} {offer['currency']}"
     maxAmount = 'Любая' if offer['maxAmount'] == None else f"{offer['maxAmount']} {offer['currency']}"
-    score_data = offer['owner_score']
+    score_data = offer.get('owner_score')
+    type_var: str = offer.get('type')
+    type: str = 'Продажа' if type_var == 'sell' else 'Покупка'
     rbanks = ''
     cbanks = ''
     for rName in offer['refBanks']:
@@ -38,18 +41,18 @@ async def offer_list_msg_maker(offer):
     cbanks = "⚠️ Счет не назначен!" if not cbanks else cbanks
     
     message = (
-        f'Рейтинг обменника:\n'
-        f'Средний перевод: {score_data["avg_amount"]} '
-        f'Всего обменов: {score_data["total_transactions"]}\n'
-        f'Среднее время ответа на перевод: {score_data["avg_time"]}\n\n'
-        f'💰 Обмен {offer["currency"]} 💰\n'
+        f'⚡⚡⚡Рейтинг обменника:\n'
+        f'⚡Средний сумма сделки: {score_data["avg_amount"]} MNT\n'
+        f'⚡Среднее время ответа на перевод: {score_data["avg_time"]}\n'
+        f'⚡Всего обменов: {score_data["total_transactions"]}\n\n'
+        f'💰 <b>{type} {offer["currency"]}</b> 💰\n'
         f'💸 {offer["bannerName"]} 💸\n'
         f'💳 Банки, с которыми работает обменник:👇\n\n'
         f'{offer["currency"]}\n'
         f'{cbanks}'
         f'\nMNT:\n'
-        f'{rbanks}\n'
-        f'\n▶️ Минимальная сумма обмена: ⚡ {minAmount}\n'
+        f'{rbanks}\n\n'
+        f'▶️ Минимальная сумма обмена: ⚡ {minAmount}\n'
         f'▶️ Максимальная сумма обмена: ⚡ {maxAmount}\n\n'
         f'🔥 Курс в MNT: ⚡ {offer["rate"]} \n'
     )
@@ -128,192 +131,59 @@ async def set_buy_bank_account(bankName):
     return message
 
 
-async def complete_set_new_bank(allData):
+async def complete_set_new_bank(allData, api_gateway: SimpleAPI):
 
     sellAmount = allData['sellAmount']
     offerData = allData['selectedOffer']
 
     detaillUrl = allData["sellBank"]
-    account = await SimpleAPI.getDetails(r.userRoutes.changerBanks, detaillUrl)
-    acc = account.json()
-
-    message = f'👌 Ваши реквизиты приняты! 👌\
-                \n\n👉 Теперь выполните перевод {sellAmount} {offerData["currency"]}\
-                \nна счет обменника, по реквизитам ниже 👇\
-                \n\n🏦 Банк: {acc["name"]}\
-                \n💳 Счет: {acc["bankAccount"]}\
-                \n\n⚠️ Обязательно! ⚠️\
-                \n После перевода, ответным сообщением\
-                \nпришлите скриншот / фото\
-                \nэкрана (или чек) с информацией\
-                \nо платеже ⚠️'
-    
-    return message
-
-
-async def changer_inform(changerId, stateData):
-
-    changer =  await SimpleAPI.getDetails(r.changerRoutes.changerProfile, changerId)
-    c = changer.json()
-    summ = stateData["sellAmount"] * stateData["selectedOffer"]["rate"]
-
-    message = f'🔰 {c["name"]} здравствуйте!\
-                \n\nВашим предложением по покупке {stateData["selectedOffer"]["currency"]}\
-                \nзаинтересовался пользователь.\
-                \n🏦 Сейчас он получил банковские реквизиты\
-                \nдля перевода {stateData["selectedOffer"]["currency"]} {stateData["sellAmount"]} \
-                \nна ваш счет.\
-                \n\n⚠️ Ожидайте подтверждение перевода. ⚠️\
-                \n\nПосле чего, вам придут реквизиты пользователя\
-                \nна которые вы дожны будете перевести \
-                \n💰 {summ} MNT в соответсвии с предложенным\
-                \nранее вами курсом {stateData["selectedOffer"]["rate"]}'
-    
-    return message
-
-
-async def accept_user_transfer():
-
-    message = f'⚠️ Пользователь подтвердил перевод\
-                \nданным файлом. Ознакомьтесь, и\
-                \nесли данные корректны нажмите кнопку\
-                \n➡️ подтвердить получение 👇'
-    
-    return message
-
-
-async def user_inform(buyAmount):
-
-    message = f'👌Мы отправили обменнику информацию\
-                \nо совершенном вами платеже.\
-                \n\n💰 Как только он подтвердит получение\
-                \n денег, к вам придет сообщение об этом.\
-                \n\n⚡ После этого обменник выполнит\
-                \n перевод {buyAmount} MNT на указанные вами\
-                \nреквизиты.\
-                \n\n⚠️ Внимание! ⚠️\
-                \nПосле получения денег не забудьте\
-                \nнажать кнопку "Подтвердить получение"'
-    
-    return message
-
-
-async def contact_to_admin():
-
-    message = f'При возникновении внештатных ситуаций \
-                \nпишите аккаунту @Dzmnd, вам обязательно\
-                \nпомогут и проблема будет решена.'
-    
-    return message
-
-
-async def accept_user_transfer2():
-
-    message = f'👌 Обменник подтвердил получение\
-                \nвашего перевода.\
-                \n\n💸 Мы отправили ему ваши реквизиты\
-                \nдля перевода. Ожидайте поступление\
-                \nденежных средств. 💸\
-                \n\n⚠️ После совешения перевода обменником\
-                \nвам придет сообщение с подтверждением\
-                \nоперации. После поступления денег\
-                \nне забудьте нажать кнопку \
-                \n"Подтвердить получение" ⚠️'
-    
-    return message
-
-
-async def accept_changer_transfer(transfer):
-
-    account = await SimpleAPI.getDetails(
-        r.userRoutes.userBanks,
-        transfer['userBank']
+    response: dict = await api_gateway.get_detail(
+        path=r.keysRoutes.currencyList,
+        detaillUrl=detaillUrl
     )
-    acc = account.json()
+    exception: bool = response.get('exception')
+    if not exception:
+        acc: list = response.get('response')
 
-    message = f'👌 Ваше подтверждение принято! 👌\
-                \n\n👉 Теперь выполните перевод {transfer["buyAmount"]} MNT\
-                \nна счет пользователя, по реквизитам ниже 👇\
-                \n\n🏦 Банк: {acc["name"]}\
-                \n💳 Счет: {acc["bankAccount"]}\
-                \n\n⚠️ Обязательно! ⚠️\
-                \n После перевода, ответным сообщением\
-                \nпришлите скриншот / фото\
-                \nэкрана (или чек) с информацией\
-                \nо платеже ⚠️'
+        message = f'👌 Ваши реквизиты приняты! 👌\
+                    \n\n👉 Теперь выполните перевод {sellAmount} {offerData["currency"]}\
+                    \nна счет обменника, по реквизитам ниже 👇\
+                    \n\n🏦 Банк: {acc["name"]}\
+                    \n💳 Счет: {acc["bankAccount"]}\
+                    \n\n⚠️ Обязательно! ⚠️\
+                    \n После перевода, ответным сообщением\
+                    \nпришлите скриншот / фото\
+                    \nэкрана (или чек) с информацией\
+                    \nо платеже ⚠️'
+        
+        return message
 
+
+
+async def set_user_bank_name(currency):
+
+    value: str = (
+        '<b>Внимание!</b>\n'
+        f'В настоящее время, операции по валюте {currency}'
+        f'поддеживаются только с банками Монголии.\n'
+    )
+    alert: str = value if currency == 'USD' else ''
+    
+    message= (
+        f'{alert}\n'
+        'Вы впервые производите обмен в нашей системе, у вас нет сохранившихся счетов'
+        f'🏦 Выберите название банка, куда вы ходите получить 💸 {currency}: 👇'
+    )
     return message
 
 
-async def decline_user_transfer():
+async def enter_user_bank_name(currency):
 
-    message = f'⚠️ К сожалению, обменник не подтвердил\
-                \nперевод денег по своим реквизитам. ⚠️\
-                \n\nАдминистратор уже получил уведомление\
-                \nо внештатной ситауции и во всем разбирается.\
-                \nВ ближайшее время он с вами свяжется'
-    
-
-async def accept_changer_proof(transferId):
-
-    message = f'🔰 Заявка № {transferId} 🔰\
-                \n\n⚠️ Обменник подтвердил перевод\
-                \nданным файлом. Ознакомьтесь, если\
-                \nданные корректны и деньги зачислены\
-                \n➡️ нажмите подтвердить получение 👇'
-    
-
-async def changer_inform2(transferId):
-
-    message = f'🔰 Заявка № {transferId} 🔰\
-                \n👌Мы отправили пользователю информацию\
-                \nо совершенном вами платеже.\
-                \n\n💰 Как только он подтвердит получение\
-                \n денег, к вам придет сообщение об этом.'
-    
+    message = (
+        f'🏦 Введите название банка, куда хотите получить 💸 {currency} '
+        'от обменника: 👇'
+    )
     return message
-
-
-async def accept_changer_transfer2(transferId):
-
-    message = f'🔰 Заявка № {transferId} 🔰\
-                \n👌 Пользователь подтвердил получение\
-                \nвашего перевода.\
-                \n\n💸 Спасибо что вы с нами!'
-    
-    return message
-
-
-async def accept_changer_transfer3(transferId):
-
-    message = f'🔰 Заявка № {transferId} 🔰\
-                \n👌 Ваше подтверждение принято! 👌\
-                \n\n💸 Спасибо что вы с нами!'
-    
-    return message
-
-
-async def decline_changer_transfer(transferId):
-
-    message = f'🔰 Заявка № {transferId} 🔰\
-                \n⚠️ К сожалению, пользователь не подтвердил\
-                \nперевод денег по своим реквизитам. ⚠️\
-                \n\nАдминистратор уже получил уведомление\
-                \nо внештатной ситауции и во всем разбирается.\
-                \nВ ближайшее время он с вами свяжется'
-    
-    return message
-    
-
-async def decline_changer_transfer2(transferId):
-
-    message = f'🔰 Заявка № {transferId} 🔰\
-                \n\nАдминистратор уже получил уведомление\
-                \nо внештатной ситауции и во всем разбирается.\
-                \nВ ближайшее время он с вами свяжется'
-    
-    return message
-
 
 
 async def staff_welcome(transfers):
@@ -452,12 +322,17 @@ async def staff_show_offer_name(description):
     return message
 
 
-async def staff_create_offer_show_final_text(post_data, banks_accounts):
+async def staff_create_offer_show_final_text(
+        post_data: dict,
+        banks_accounts: dict
+    ):
 
     minAmount = 'Любая' if post_data['minAmount'] == None else f"{post_data['minAmount']} {post_data['currency']}"
     maxAmount = 'Любая' if post_data['maxAmount'] == None else f"{post_data['maxAmount']} {post_data['currency']}"
     currency = post_data.get('currency')
-    
+    type_var: str = post_data.get('type')
+    type: str = 'Продажа' if type_var == 'sell' else 'Покупка'
+
     rbanks = ''
     cbanks = ''
     for rName in banks_accounts['MNT']:
@@ -471,7 +346,7 @@ async def staff_create_offer_show_final_text(post_data, banks_accounts):
 
     message = (
 
-        f'💰 Обмен {post_data["currency"]} 💰\n'
+        f'💰 <b>{type} {post_data["currency"]}</b> 💰\n'
         f'💸 {post_data["bannerName"]} 💸\n'
         f'💳 Банки, с которыми работает обменник:👇\n'
         f'{post_data["currency"]}\n'
@@ -504,10 +379,10 @@ async def staff_edit_offer_show(offer):
     cbanks = "⚠️ Счет не назначен!" if not cbanks else cbanks
 
     message = (
-        f'Рейтинг обменника:\n'
-        f'Средний перевод: {score_data["avg_amount"]} '
-        f'Всего обменов: {score_data["total_transactions"]}\n'
-        f'Среднее время ответа на перевод: {score_data["avg_time"]}\n\n'
+        f'⚡⚡⚡Рейтинг обменника:\n'
+        f'⚡Средний сумма сделки: {score_data["avg_amount"]} MNT\n'
+        f'⚡Среднее время ответа на перевод: {score_data["avg_time"]}\n'
+        f'⚡Всего обменов: {score_data["total_transactions"]}\n\n'
         f'💰 Обмен {offer["currency"]} 💰\n'
         f'💸 {offer["bannerName"]} 💸\n'
         f'💳 Банки, с которыми работает обменник:👇\n'
@@ -525,51 +400,45 @@ async def staff_edit_offer_show(offer):
 
 
 
-async def staff_show_editable_banks(banks):
+async def staff_show_editable_banks(bank: dict):
 
-    messages = []
-
-    for bank in banks:
-
-        alert_msg = ''
-        if bank.get('will_deactivate') and bank.get('isActive'):
-            alert_msg = (
-            'Если сделать данный счет не активным - с публикации '
-            f'снимется {bank.get("will_deactivate")} предложения на обмен.'
-            'Они отобразятся в разделе "Мои предложения">"Не активные"'
-            )
-        messages.append(
-            f'💰 Банк {bank["name"]} 💰\n\n'
-            f'💵 Валюта {bank["currency"]["name"]} 💵\n'
-            f'💳 Счет {bank["bankAccount"]} 💳\n\n'
-            f'{alert_msg}'
-
+    alert_msg = ''
+    if bank.get('will_deactivate') and bank.get('isActive'):
+        alert_msg = (
+        'Если сделать данный счет не активным - с публикации '
+        f'снимется {bank.get("will_deactivate")} предложения на обмен.'
+        'Они отобразятся в разделе "Мои предложения">"Не активные"'
         )
+    message = (
+        f'💰 Банк {bank["name"]} 💰\n\n'
+        f'💵 Валюта {bank["currency"]["name"]} 💵\n'
+        f'💳 Счет {bank["bankAccount"]} 💳\n\n'
+        f'{alert_msg}'
+    )
 
-    return messages
+    return message
 
 
-async def staff_show_uncompleted_transfers(transfers):
+async def staff_show_uncompleted_transfers(transfer):
 
-    messages = []
+    id = transfer['id']
+    sell_cur = transfer['sellCurrency']
+    sell_amount = transfer['sellAmount']
+    buy_amount = transfer['buyAmount']
+    rate = transfer['rate']
+    type_var = transfer['type']
 
-    for transfer in transfers:
+    type: str = 'Продажа' if type_var == 'sell' else 'Покупка'
 
-        id = transfer['id']
-        sell_cur = transfer['sellCurrency']
-        sell_amount = transfer['sellAmount']
-        buy_amount = transfer['buyAmount']
-        rate = transfer['rate']
+    message = (
+        '💵💵💵💵💵💵💵💵💵💵\n\n'
+        f'<b>Перевод id {id}</b>\n\n'
+        f'💰<b> {type} {sell_cur}</b> 💰\n'
+        f'Курс {rate}\n\n'
+        f'<b>Вам перевели {sell_amount} {sell_cur}</b>\n'
+    )
 
-        messages.append(
-            '💵💵💵💵💵💵💵💵💵💵\n\n'
-            f'<b>Перевод id {id}</b>\n\n'
-            f'💰 Обмен {sell_cur} 💰\n'
-            f'Курс {rate}\n\n'
-            f'<b>Вам перевели {sell_amount} {sell_cur}</b>\n'
-        )
-
-    return messages
+    return message
 
 
 
@@ -580,14 +449,17 @@ async def staff_show_uncompleted_transfer_detail(transfer):
     sell_amount = transfer['sellAmount']
     buy_amount = transfer['buyAmount']
     rate = transfer['rate']
+    type_var = transfer['type']
     changer_bank_name = transfer['changerBank']['name']
     changer_bank_acc = transfer['changerBank']['bankAccount']
     user_bank_name = transfer['userBank']['name']
     user_bank_acc = transfer['userBank']['bankAccount']
 
+    type: str = 'Продажа' if type_var == 'sell' else 'Покупка'
+
     message = (
         f'\nПеревод id {id}\n'
-        f'💰 Обмен {sell_cur} 💰\n'
+        f'💰<b> {type} {sell_cur}</b> 💰\n'
         f'Курс{rate} - сумма {sell_amount} {sell_cur}\n'
         f'💳 Банк, на который пользователь сделал перевод:👇\n\n'
         f'{changer_bank_name}\n'
@@ -608,24 +480,26 @@ async def staff_show_uncompleted_transfer_detail(transfer):
 
 
 
-async def user_show_events(user_event):
+async def user_show_events(user_event: dict):
 
     id = user_event['id']
     sell_cur = user_event['sellCurrency']
     sell_amount = user_event['sellAmount']
     buy_amount = user_event['buyAmount']
     rate = user_event['rate']
+    type_var: str = user_event.get('type')
+    type: str = 'Продажа' if type_var == 'sell' else 'Покупка'
 
     user_bank_name = user_event['userBank']['name']
     user_bank_acc = user_event['userBank']['bankAccount']
 
     message = (
         f'\nПеревод id {id}\n'
-        f'💰 Обмен {sell_cur} 💰\n'
+        f'💰<b> {type} {sell_cur}</b> 💰\n'
         f'Курс{rate} - сумма {sell_amount} {sell_cur}\n'
         f'💳 Банк, на который обменник сделал перевод:👇\n\n'
         f'{user_bank_name}\n'
-        f'{user_bank_acc}\n\n'
+        f'```{user_bank_acc}```\n\n'
         f'Сумма: {buy_amount}\n\n'
         '📢⚠️📢⚠️📢⚠️📢⚠️📢⚠️\n'
         '<b>Убедительная просьба!</b>\n'
@@ -633,6 +507,31 @@ async def user_show_events(user_event):
         'на кнопку <b>"Подтвердить перевод"!</b>\n'
         'В противном случае перевод не будет завершен'
         'что прямо влияет на репутацию обменника!\n'
+    )
+
+    return message
+
+
+
+async def user_max_len_message(value: int):
+    message = (
+        f'Введеное вами нименование имеет\n'
+        f'длину более 20 символов. А именно {value}.\n'
+        f'Сократите их количество.\n'
+    )
+    return message
+
+
+async def error_set_new_bank(account: int):
+
+    message = (
+        f'К сожалению, указанный вами банковский счет '
+        f'уже зарегистрирован в системе у другого пользователя. '
+        f'Вероятно вы допустили ошибку:'
+        f'\n<b>{account}</b>\n'
+        f'Если это так - просто повторите ввод корректно.\n'
+        f'Если вы уверены в правильности номера, сообщите '
+        f'о возникшей ситуации администратору, он во всем разберется.'
     )
 
     return message

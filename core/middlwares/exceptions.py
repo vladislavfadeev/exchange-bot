@@ -14,4 +14,8 @@ class MaxLenError(Exception):
 
 
 class ResponseError(Exception):
-    pass
+    def __str__(self):
+        return(
+            'Responce status code does not '
+            'match the expected code'
+        )

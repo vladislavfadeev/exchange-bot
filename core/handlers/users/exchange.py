@@ -1,7 +1,6 @@
 import asyncio
 import logging
 from datetime import datetime
-from httpx import Response
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from aiogram.fsm.context import FSMContext
@@ -10,7 +9,7 @@ from aiogram.types import Message
 from aiogram import F, Bot, Dispatcher
 
 from core.keyboards import home_kb
-from core.utils.notifier import transfers_getter_user
+from core.utils.notifier import alert_message_sender, transfers_getter_user
 from core.middlwares.routes import r    # Dataclass whith all api routes
 from core.middlwares.settigns import appSettings
 from core.utils import msg_maker, msg_var
@@ -23,6 +22,7 @@ from core.keyboards.callbackdata import (
     UserExchangeData,
 )
 from core.middlwares.exceptions import (
+    MaxLenError,
     MinAmountError,
     MaxAmountError,
     ResponseError,
@@ -33,6 +33,7 @@ from core.middlwares.exceptions import (
 async def start_change(
         call: CallbackQuery,
         state: FSMContext,
+        api_gateway: SimpleAPI,
         bot: Bot
 ):
     '''
@@ -63,7 +64,9 @@ async def start_change(
     mainMsg = await bot.send_message(
         call.from_user.id,
         text=msg.currency_choice_1,
-        reply_markup=await user_kb.set_sell_currency_button()
+        reply_markup=await user_kb.set_sell_currency_button(
+            api_gateway
+        )
     )
     await state.update_data(mainMsg = mainMsg)
 
@@ -73,6 +76,7 @@ async def show_offer(
         call: CallbackQuery, 
         state: FSMContext,
         callback_data: UserExchangeData,
+        api_gateway: SimpleAPI,
         bot: Bot
 ):
     '''
@@ -87,44 +91,14 @@ async def show_offer(
         'isDeleted': False,
         'owner__online': True
     }
-    try:
-        offers: Response = await SimpleAPI.get(
-            r.userRoutes.offer,
-            params
-        )
-        if offers.status_code != 200:
-            raise ResponseError()
-        
-    except ResponseError as e:
-        await call.message.edit_text(
-            text=msg.error_msg,
-            reply_markup= await user_kb.final_transfer_stage(),
-        )
-        await bot.send_message(
-            appSettings.botSetting.devStaffId,
-            text=(
-                'handlers.users.exchange.py - show-offer\n'
-                f'{repr(e)}\n'
-                f'{offers.json()}'
-            )
-        )
-        logging.exception(f'{e} - {offers.json()}')
-
-    except Exception as e:
-        await call.message.edit_text(
-            text=msg.error_msg,
-            reply_markup= await user_kb.final_transfer_stage(),
-        )
-        await bot.send_message(
-            appSettings.botSetting.devStaffId,
-            text=(
-                'handlers.users.exchange.py - show-offer\n'
-                f'{repr(e)}'
-            )
-        )
-        logging.exception(e)
-    else:
-        offers_list: list = offers.json()
+    response: dict = await api_gateway.get(
+        path=r.userRoutes.offer,
+        params=params,
+        exp_code=[200]
+    )
+    exception: bool = response.get('exception')
+    if not exception:
+        offers_list: list = response.get('response')
         if offers_list:
             # if response is not empty
             await state.update_data(selected_curr_id = callback_data.id)
@@ -154,6 +128,8 @@ async def show_offer(
                 text=msg.zero_offer, 
                 reply_markup= await user_kb.user_cancel_buttons_offerslist()
             )
+    else:
+        await alert_message_sender(bot, call.from_user.id)
 
 
 
@@ -268,6 +244,7 @@ async def choose_changer_bank(
         call: CallbackQuery,
         state: FSMContext,
         callback_data: UserExchangeData,
+        api_gateway: SimpleAPI,
         bot: Bot 
     ):
     '''
@@ -292,45 +269,20 @@ async def choose_changer_bank(
             'isActive': True,
             'currency__name': currency
         }
-    try:
-        banks: Response = await SimpleAPI.get(
-            r.userRoutes.changerBanks,
-            params
-        )
-        if banks.status_code != 200:
-            raise ResponseError()
-    except ResponseError as e:
-        await call.message.edit_text(
-            text=msg.error_msg,
-            reply_markup= await user_kb.final_transfer_stage(),
-        )
-        await bot.send_message(
-            appSettings.botSetting.devStaffId,
-            text=(
-                'handlers.users.exchange.py - choose_changer_bank\n'
-                f'{repr(e)}\n'
-                f'{banks.json()}'
-            )
-        )
-        logging.exception(f'{e} - {banks.json()}')
-    except Exception as e:
-        await call.message.edit_text(
-            text=msg.error_msg,
-            reply_markup= await user_kb.final_transfer_stage(),
-        )
-        await bot.send_message(
-            appSettings.botSetting.devStaffId,
-            text=(
-                'handlers.users.exchange.py - choose_changer_bank\n'
-                f'{repr(e)}'
-            )
-        )
-        logging.exception(e)
-    else:
+    response: dict = await api_gateway.get(
+        path=r.userRoutes.changerBanks,
+        params=params,
+        exp_code=[200]
+    )
+    exception: bool = response.get('exception')
+    if not exception:
+        banks: list = response.get('response')
         await call.message.edit_text(
             text= await msg_maker.set_changer_bank(currency),
             reply_markup= await user_kb.set_changer_bank(banks)
         )
+    else:
+        await alert_message_sender(bot, call.from_user.id)
     
 
 
@@ -338,6 +290,7 @@ async def choose_user_bank(
         call: CallbackQuery,
         state: FSMContext,
         callback_data: UserExchangeData,
+        api_gateway: SimpleAPI,
         bot: Bot
     ):
     '''
@@ -363,47 +316,17 @@ async def choose_user_bank(
             'isActive': True,
             'currency__name': currency
         }
-    try:
-        banksName: Response = await SimpleAPI.get(
-            r.userRoutes.banksNameList
-        )
-        banks: Response = await SimpleAPI.get(
-            r.userRoutes.userBanks,
-            params
-        )
-        if banks.status_code != 200 \
-            or banksName.status_code != 200:
-            raise ResponseError()
-    except ResponseError as e:
-        await call.message.edit_text(
-            text=msg.error_msg,
-            reply_markup= await user_kb.final_transfer_stage(),
-        )
-        await bot.send_message(
-            appSettings.botSetting.devStaffId,
-            text=(
-                'handlers.users.exchange.py -> choose_user_bank\n'
-                f'{repr(e)}\n'
-                f'{banks.json()}'
-            )
-        )
-        logging.exception(f'{e} - {banks.json()}')
-    except Exception as e:
-        await call.message.edit_text(
-            text=msg.error_msg,
-            reply_markup= await user_kb.final_transfer_stage(),
-        )
-        await bot.send_message(
-            appSettings.botSetting.devStaffId,
-            text=(
-                'handlers.users.exchange.py - choose_user_bank\n'
-                f'{repr(e)}'
-            )
-        )
-        logging.exception(e)
-    else:
+
+    banks: dict = await api_gateway.get(
+        path=r.userRoutes.userBanks,
+        params=params,
+        exp_code=[200]
+    )
+    b_exception: bool = banks.get('exception')
+    if not b_exception:
+        banks_data: list = banks.get('response')
         # if user have bank account for offer currency
-        if banks.json() and callback_data.name != 'set_new':
+        if banks_data and callback_data.name != 'set_new':
             await state.update_data(changerBank = callback_data.id)        
             await call.message.edit_text(
                 text = await msg_maker.choose_user_bank_from_db(),
@@ -411,14 +334,61 @@ async def choose_user_bank(
             )
         # if accounts does not exists or user want create new
         else:
-            if callback_data.name != 'set_new':
-                await state.update_data(changerBank = callback_data.id)
-            await call.message.edit_text(
-                text=msg.enter_user_bank_name,
-                reply_markup= await user_kb.choose_bank_name_from_list(
-                    banksName
+            if currency in ['RUB']:
+                await call.message.edit_text(
+                    text=await msg_maker.enter_user_bank_name(currency)
                 )
-            )
+                await state.set_state(FSMSteps.USER_ENTER_BANK_NAME)
+            else:
+                banksName: dict = await api_gateway.get(
+                    path=r.userRoutes.banksNameList,
+                    exp_code=[200]
+                )
+                bn_exception: bool = banksName.get('exception')
+                if not bn_exception:
+                    banks_name_data: list = banksName.get('response')
+                    if callback_data.name != 'set_new':
+                        await state.update_data(changerBank = callback_data.id)
+                    await call.message.edit_text(
+                        text=await msg_maker.set_user_bank_name(currency),
+                        reply_markup= await user_kb.choose_bank_name_from_list(
+                            banks_name_data
+                        )
+                    )
+                else:
+                    await alert_message_sender(bot, call.from_user.id)
+    else:
+        await alert_message_sender(bot, call.from_user.id)
+
+
+
+async def user_new_bank_name_setter(
+        message: Message,
+        state: FSMContext,
+        bot: Bot
+    ):
+    '''
+    '''
+    await message.delete()
+    data: dict = await state.get_data()
+    mainMsg: Message = data.get('mainMsg')
+  
+    try:
+        value: str = message.text
+        if len(value) > 20:
+            raise MaxLenError
+    except MaxLenError as e:
+        await mainMsg.edit_text(
+            text = await msg_maker.user_max_len_message(len(value)),
+            reply_markup = await user_kb.user_cancel_button()
+        )
+    else:
+        await state.update_data(userBank = value)
+        await mainMsg.edit_text(
+            text=await msg_maker.set_buy_bank_account(value),
+            reply_markup=await home_kb.user_back_home_inline_button()
+        )
+        await state.set_state(FSMSteps.SET_BUY_BANK_ACCOUNT)   
 
 
 
@@ -447,6 +417,7 @@ async def choose_new_user_bank_next(
 async def apply_new_user_bank(
         message: Message,
         state: FSMContext,
+        api_gateway: SimpleAPI,
         bot: Bot
     ):
     '''
@@ -476,7 +447,7 @@ async def apply_new_user_bank(
         )
     else:
         offer_type = offer.get('type')
-        currency = curr_id if offer_type == 'sell' else 2
+        currency = curr_id if offer_type == 'sell' else 2       # check id from db
         postData = {
             "name": bankName,
             "bankAccount": account,
@@ -484,47 +455,33 @@ async def apply_new_user_bank(
             "currency": currency,
             "isActive": True
         }
-        try:
-            response: Response = await SimpleAPI.post(
-                r.userRoutes.userBanks,
-                postData
-            )
-            if response.status_code != 201:
-                raise ResponseError()
-        except ResponseError as e:
-            await mainMsg.edit_text(
-                text=msg.create_account_error,
-                reply_markup= await user_kb.final_transfer_stage(),
-            )
-            await bot.send_message(
-                appSettings.botSetting.devStaffId,
-                text=(
-                    'handlers.users.exchange.py -> apply_new_user_bank\n'
-                    f'{repr(e)}\n'
-                    f'{response.json()}'
-                )
-            )
-            logging.exception(f'{e} - {response.json()}')
-        except Exception as e:
-            await mainMsg.edit_text(
-                text=msg.error_msg,
-                reply_markup= await user_kb.final_transfer_stage(),
-            )
-            await bot.send_message(
-                appSettings.botSetting.devStaffId,
-                text=(
-                    'handlers.users.exchange.py - apply_new_user_bank\n'
-                    f'{repr(e)}'
-                )
-            )
-            logging.exception(e)
-        else:
+        response: dict = await api_gateway.post(
+            path=r.userRoutes.userBanks,
+            data=postData,
+            exp_code=[201, 400]
+        )
+        exception: bool = response.get('exception')
+        status_code: int = response.get('status_code')
+        if status_code == 201:
+            user_account: dict = response.get('response')
             await mainMsg.edit_text( 
-                text= await msg_maker.complete_set_new_bank(data),
+                text= await msg_maker.complete_set_new_bank(
+                    data,
+                    api_gateway
+                ),
                 reply_markup= await home_kb.user_back_home_inline_button()
             )
-            await state.update_data(userAccount = response.json())
+            await state.update_data(userAccount = user_account)
             await state.set_state(FSMSteps.GET_USER_PROOF)
+        elif status_code == 400:
+            response_data: dict = response.get('response')
+            await mainMsg.edit_text( 
+                text= await msg_maker.error_set_new_bank(account),
+                reply_markup= await user_kb.final_transfer_stage()
+            )
+            logging.warning(response_data)
+        else:
+            await alert_message_sender(bot, message.from_user.id)
 
 
 
@@ -533,6 +490,7 @@ async def use_old_user_bank(
         call: CallbackQuery,
         state: FSMContext,
         bot: Bot,
+        api_gateway: SimpleAPI,
         callback_data: UserExchangeData
     ):
     '''
@@ -541,47 +499,25 @@ async def use_old_user_bank(
     data = await state.get_data()
     accountId = callback_data.id
     # try to get full data of user bank account by account_id
-    try:
-        userAccount: Response = await SimpleAPI.getDetails(
-            r.userRoutes.userBanks,
-            accountId
-        )
-        if userAccount.status_code != 200:
-            raise ResponseError()
-    except ResponseError as e:
+    response: dict = await api_gateway.get_detail(
+        path=r.userRoutes.userBanks,
+        detailUrl=accountId,
+        exp_code=[200]
+    )
+    exception: bool = response.get('response')
+    if not exception:
+        user_account: dict = response.get('response')
+        await state.update_data(userAccount = user_account)
         await call.message.edit_text(
-            text=msg.error_msg,
-            reply_markup= await user_kb.final_transfer_stage(),
-        )
-        await bot.send_message(
-            appSettings.botSetting.devStaffId,
-            text=(
-                'handlers.users.exchange.py -> use_old_user_bank\n'
-                f'{repr(e)}\n'
-                f'{userAccount.json()}'
-            )
-        )
-        logging.exception(f'{e} - {userAccount.json()}')
-    except Exception as e:
-        await call.message.edit_text(
-            text=msg.error_msg,
-            reply_markup= await user_kb.final_transfer_stage(),
-        )
-        await bot.send_message(
-            appSettings.botSetting.devStaffId,
-            text=(
-                'handlers.users.exchange.py -> use_old_user_bank\n'
-                f'{repr(e)}'
-            )
-        )
-        logging.exception(e)
-    else:
-        await state.update_data(userAccount = userAccount.json())
-        await call.message.edit_text(
-            text= await msg_maker.complete_set_new_bank(data),
+            text= await msg_maker.complete_set_new_bank(
+                data,
+                api_gateway
+            ),
             reply_markup= await home_kb.user_back_home_inline_button()
         )
         await state.set_state(FSMSteps.GET_USER_PROOF)
+    else:
+        await alert_message_sender(bot, call.from_user.id)
 
 
 
@@ -589,6 +525,7 @@ async def get_user_proof(
         message: Message,
         state: FSMContext,
         apscheduler: AsyncIOScheduler,
+        api_gateway: SimpleAPI,
         bot: Bot
 ):
     '''
@@ -650,41 +587,13 @@ async def get_user_proof(
             'claims': False,
             'changerAccepted': False
         }
-        try:
-            transaction: Response = await SimpleAPI.post(
-                r.userRoutes.transactions,
-                post_data
-            )
-            if transaction.status_code != 201:
-                raise ResponseError()
-        except ResponseError as e:
-            await mainMsg.edit_text(
-                text=msg.error_msg,
-                reply_markup= await user_kb.final_transfer_stage(),
-            )
-            await bot.send_message(
-                appSettings.botSetting.devStaffId,
-                text=(
-                    'handlers.users.exchange.py -> use_old_user_bank\n'
-                    f'{repr(e)}\n'
-                    f'{transaction.json()}'
-                )
-            )
-            logging.exception(f'{e} - {transaction.json()}')
-        except Exception as e:
-            await mainMsg.edit_text(
-                text=msg.error_msg,
-                reply_markup= await user_kb.final_transfer_stage(),
-            )
-            await bot.send_message(
-                appSettings.botSetting.devStaffId,
-                text=(
-                    'handlers.users.exchange.py -> use_old_user_bank\n'
-                    f'{repr(e)}'
-                )
-            )
-            logging.exception(e)
-        else:
+        response: dict = await api_gateway.post(
+            path=r.userRoutes.transactions,
+            data=post_data,
+            exp_code=[201]
+        )
+        exception: bool = response.get('exception')
+        if not exception:
             # if all checks were sucsessful bot create new
             # task that will track the exchanger's response
             await mainMsg.edit_text(
@@ -706,6 +615,8 @@ async def get_user_proof(
                         'user_id':message.from_user.id,
                     }
                 )
+        else:
+            await alert_message_sender(bot, message.from_user.id)
 
 
 
@@ -716,6 +627,11 @@ async def setup_exchande_handlers(dp: Dispatcher):
     dp.message.register(
         set_amount_check,
         FSMSteps.SET_AMOUNT_STATE,
+        F.text
+    )
+    dp.message.register(
+        user_new_bank_name_setter,
+        FSMSteps.USER_ENTER_BANK_NAME,
         F.text
     )
     # dp.message.register(
