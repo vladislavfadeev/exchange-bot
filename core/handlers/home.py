@@ -50,7 +50,7 @@ async def command_start(
             'tg': message.from_user.id,
             "isActive": True
         },
-        exp_code = [200, 400]
+        exp_code = [201, 400]
     )
     # get request status
     exception: bool = response.get('exception')
@@ -136,7 +136,6 @@ async def command_login(
             exp_code=[200, 404]
         )
         code: int = response.get('status_code')
-        print(type(code), code)
         exception: bool = response.get('exception')
         if not exception:
             if code == 404:

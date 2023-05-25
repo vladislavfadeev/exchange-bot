@@ -1,7 +1,6 @@
 import logging
 import traceback
 from types import NoneType
-from typing import Union
 from httpx import AsyncClient, Response
 from aiogram import Bot, Dispatcher
 from core.middlwares.exceptions import ResponseError
@@ -40,12 +39,20 @@ class SimpleAPI():
                 path: str = kwargs.get('path')
                 detailUrl: str | NoneType = kwargs.get('detailUrl')
                 det: str = f'/{detailUrl}' if detailUrl else ''
+                exception: bool = True
+                code: int = response.status_code
+                try:
+                    response_data: dict | NoneType = response.json()
+                except:
+                    response_data : NoneType = None
 
                 logging.exception(
                     f'method: {method}\n'
+                    f'exp_code: {exp_code} | code: {code}\n'
                     f'get params:\n{params}\n\n'
-                    f'post / patch data:\n{post_data}\n\n'
+                    f'post | patch data:\n{post_data}\n\n'
                     f'endpoint: {path}{det}\n\n'
+                    f'response: \n{response_data}\n'
                     f'{e}\n'
                 )
                 await bot.send_message(
@@ -53,15 +60,14 @@ class SimpleAPI():
                     text=(
                         'SimpleAPI raise exception!\n\n'
                         f'method: {method}\n'
+                        f'exp_code: {exp_code} | code: {code}\n'
                         f'get params:\n{params}\n\n'
                         f'post/patch data:\n{post_data}\n\n'
                         f'endpoint: {path}{det}\n\n'
+                        f'response: \n{response_data}\n'
                         f'{traceback.format_exc(limit=1)}\n'
                     )
                 )
-                exception: bool = True
-                code: int = response.status_code
-                response_data: dict = response.json()
             else:
                 exception: bool = False
                 code: int = response.status_code
