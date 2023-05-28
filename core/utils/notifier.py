@@ -11,8 +11,6 @@ from core.api_actions.bot_api import SimpleAPI
 from core.utils import  msg_var as msg
 from core.keyboards import home_kb
 from create_storage import scheduler
-import logging
-
 
 
 
@@ -207,36 +205,36 @@ async def transfers_getter_user(
                 )
                 await state.update_data(mainMsg = alertMsg)
 
-    elif not new_events:
+        elif not new_events:
 
-        params = {
-            'user': user_id,
-            'claims': False,
-            'isCompleted': False,
-            'changerAccepted': False
-        }
-        response: dict = await api_gateway.get(
-            path=r.userRoutes.transactions,
-            params=params,
-            exp_code=[200]
-        )
-        exception: bool = response.get('exception')
-        response_data: dict = response.get('response')
-        if not response_data and not exception:
+            params = {
+                'user': user_id,
+                'claims': False,
+                'isCompleted': False,
+                'changerAccepted': False
+            }
+            response: dict = await api_gateway.get(
+                path=r.userRoutes.transactions,
+                params=params,
+                exp_code=[200]
+            )
+            exception: bool = response.get('exception')
+            response_data: dict = response.get('response')
+            if not response_data and not exception:
 
-            scheduler.remove_job(f'user_getter-{user_id}')
+                scheduler.remove_job(f'user_getter-{user_id}')
 
-        # notifier_id = f'user_notifier-{user_id}'
+            # notifier_id = f'user_notifier-{user_id}'
 
-        # scheduler.add_job(
-        #     user_notifier,
-        #     'interval',
-        #     minutes=1,
-        #     id = notifier_id,
-        #     kwargs = {
-        #         'user_id': user_id
-        #     }
-        # )
+            # scheduler.add_job(
+            #     user_notifier,
+            #     'interval',
+            #     minutes=1,
+            #     id = notifier_id,
+            #     kwargs = {
+            #         'user_id': user_id
+            #     }
+            # )
 
 
 

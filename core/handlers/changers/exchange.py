@@ -1,6 +1,5 @@
 import asyncio
 from datetime import datetime
-from typing import Type
 
 from aiogram.fsm.context import FSMContext
 from aiogram.types.callback_query import CallbackQuery

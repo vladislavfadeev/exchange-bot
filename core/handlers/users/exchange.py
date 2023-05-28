@@ -201,7 +201,6 @@ async def set_amount_check(message: Message, state: FSMContext):
             if amount > offerData['maxAmount']:
                 raise MaxAmountError()
     except ValueError as e:
-        logging.error(e)
         await mainMsg.edit_text(
             text=msg_var.type_error_msg,
             reply_markup = await user_kb.user_return_to_offer_choice_button(
@@ -209,7 +208,6 @@ async def set_amount_check(message: Message, state: FSMContext):
             )
         )
     except MinAmountError as e:
-        logging.error(e)
         await mainMsg.edit_text(
             text = await msg_maker.min_amount_error_msg_maker(offerData),
             reply_markup = await user_kb.user_return_to_offer_choice_button(
@@ -217,7 +215,6 @@ async def set_amount_check(message: Message, state: FSMContext):
             )
         )
     except MaxAmountError as e:
-        logging.error(e)
         await mainMsg.edit_text(
             text = await msg_maker.max_amount_error_msg_maker(offerData),
             reply_markup = await user_kb.user_return_to_offer_choice_button(
@@ -434,13 +431,11 @@ async def apply_new_user_bank(
     try:
         account = int(message.text)
     except ValueError as e:
-        logging.exception(e)
         await mainMsg.edit_text(
             text=msg.account_value_error,
             reply_markup = await user_kb.final_transfer_stage()
         )
     except Exception as e:
-        logging.exception(e)
         await mainMsg.edit_text(
             text=msg.account_exception,
             reply_markup = await user_kb.final_transfer_stage()
