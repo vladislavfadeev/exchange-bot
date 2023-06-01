@@ -1,3 +1,4 @@
+from datetime import datetime
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import Command
@@ -93,11 +94,9 @@ async def command_start(
             mainMsg =  await bot.send_message(
                 message.from_user.id,
                 text= await msg_maker.start_message(
-                    message.from_user.id,
                     state
                 ),
                 reply_markup= await home_kb.user_home_inline_button(
-                    message.from_user.id,
                     state
                 )
             )
@@ -203,6 +202,7 @@ async def command_login(
                     )
                     await state.update_data(mainMsg = mainMsg)
                     await state.update_data(isStuff = True)
+                    await state.update_data(logout_time = None)
                     await state.set_state(FSMSteps.STAFF_HOME_STATE)
                     # there bot add changer notifier to job list if
                     # it is not in list
@@ -280,11 +280,9 @@ async def command_logout(
         mainMsg: Message =  await bot.send_message(
             message.from_user.id,
             text= await msg_maker.start_message(
-                message.from_user.id,
                 state
             ), 
             reply_markup= await home_kb.user_home_inline_button(
-                message.from_user.id,
                 state
             )
         )
@@ -309,15 +307,16 @@ async def command_logout(
             if getter_id in job_list:
                 apscheduler.resume_job(getter_id)
             # remove other jobs from job list
-            apscheduler.remove_job(
-                f'changer_getter-{message.from_user.id}'
-            )
-            try:
-                apscheduler.remove_job(
-                    f'changer_notifier-{message.from_user.id}'
-                )
-            except:
-                pass
+            await state.update_data(logout_time = datetime.now())
+            # apscheduler.remove_job(
+            #     f'changer_getter-{message.from_user.id}'
+            # )
+            # try:
+            #     apscheduler.remove_job(
+            #         f'changer_notifier-{message.from_user.id}'
+            #     )
+            # except:
+            #     pass
         else:
             await alert_message_sender(bot, message.from_user.id)
     # if user have not staff status
@@ -384,11 +383,9 @@ async def user_main_menu(
         mainMsg = await bot.send_message(
             call.from_user.id,
             text= await msg_maker.start_message(
-                call.from_user.id,
                 state
             ), 
             reply_markup = await home_kb.user_home_inline_button(
-                call.from_user.id,
                 state
             )
         )

@@ -12,14 +12,16 @@ async def get_claim_contacts_toadmin(user_id, changer_id):
         text='Чат с пользователем',
         url=f'tg://user?id={user_id}',
         callback_data=UserHomeData(
-            action=''
+            action='',
+            id=0
         )
     )
     builder.button(
         text='Чат с обменником',
         url=f'tg://user?id={changer_id}',
         callback_data=UserHomeData(
-            action=''
+            action='',
+            id=0
         )
     )
     builder.adjust(1)

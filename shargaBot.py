@@ -27,7 +27,7 @@ async def updater_job():
             main_msg_updater,
             'cron',
             day_of_week= 'mon-sun',
-            hour='2, 6',
+            hour='2, 5',
             id=main_msg_updater_id,
         )
     if returner_id not in job_id_list:

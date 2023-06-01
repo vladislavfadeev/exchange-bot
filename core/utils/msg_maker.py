@@ -4,19 +4,25 @@ from core.api_actions.bot_api import SimpleAPI
 
 
 
-async def start_message(id: int, state: FSMContext):
+async def start_message(state: FSMContext):
     '''
     '''
     data: dict = await state.get_data()
     events: list = data.get('user_events')
-    changer_missed_event: list = data.get('changer_missed_event')
+    uncompleted_transfers: list = data.get('uncompleted_transfers')
     insert: str = '<b>У вас новое сообщение!</b>\n\n' if events else ''
-    message = (
-        f'{insert}'
-        'Рады приветствовать вас!\n'
-        'У нас вы можете обменять валюту онлайн.\n\n'
-        'Для получения справки воспользуйтесь соответствующей кнопкой ниже.'
-    )
+    if uncompleted_transfers:
+        message = (
+            'У вас пропущенный входящий перевод! '
+            'Нажмите кнопку ниже чтобы ответить.'
+        )
+    else:
+        message = (
+            f'{insert}'
+            'Рады приветствовать вас!\n'
+            'У нас вы можете обменять валюту онлайн.\n\n'
+            'Для получения справки воспользуйтесь соответствующей кнопкой ниже.'
+        )
 
     return message
 

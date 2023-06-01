@@ -5,7 +5,7 @@ class FSMSteps(StatesGroup):
 
     USER_INIT_STATE = State()
     USER_ENTER_BANK_NAME = State()
-    INIT_CHANGE_STATE = State()
+    USER_CHANGE_STATE = State()
     SET_AMOUNT_STATE = State()
     SET_SELL_BANK = State()
     SET_BUY_BANK_INIT = State()

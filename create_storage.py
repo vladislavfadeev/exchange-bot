@@ -47,7 +47,7 @@ LOGGING_CONFIG = {
             'class': 'logging.handlers.RotatingFileHandler',
             'level': 'WARNING',
             'formatter': 'basic',
-            'filename': '/var/log/bot/sharga_bot.log',
+            'filename': f'{appSettings.botSetting.log_dir}sharga_bot.log',
             'maxBytes': 1048576,
             'backupCount': 5,
             'mode': 'a'

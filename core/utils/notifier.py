@@ -1,4 +1,7 @@
 import asyncio
+from datetime import datetime, timedelta
+from types import NoneType
+from typing import Any
 from aiogram import Bot, Dispatcher
 from core.keyboards import changer_kb
 from core.utils import msg_maker
@@ -32,38 +35,146 @@ async def changer_notifier(
     )
 
     data: dict = await state.get_data()
-    current_state = await state.get_state()
+    current_state: FSMSteps = await state.get_state()
+    user_home_state: FSMSteps = FSMSteps.USER_INIT_STATE
+    logout_time: datetime | NoneType = data.get('logout_time')
+    last_action: datetime | NoneType = data.get('last_action')
 
     mainMsg: Message = data.get('mainMsg')
     uncompleted_transfers: dict = data.get('uncompleted_transfers')
+    messageList: list = data.get('messageList')
 
-    if uncompleted_transfers and \
-        current_state == FSMSteps.STAFF_HOME_STATE:
+    if not logout_time:
+        if uncompleted_transfers and \
+            current_state == FSMSteps.STAFF_HOME_STATE:
 
-        try:
-            await bot.delete_message(
+            try:
+                await bot.delete_message(
+                    mainMsg.chat.id,
+                    mainMsg.message_id
+                )
+            except:
+                pass
+
+            alertMsg: Message = await bot.send_message(
                 mainMsg.chat.id,
-                mainMsg.message_id
+                text= await msg_maker.staff_welcome(
+                    uncompleted_transfers
+                ),
+                reply_markup= await changer_kb.staff_welcome_button(
+                    uncompleted_transfers
+                )
             )
-        except:
-            pass
+            await state.update_data(mainMsg = alertMsg)
 
-        alertMsg: Message = await bot.send_message(
-            mainMsg.chat.id,
-            text= await msg_maker.staff_welcome(
-                uncompleted_transfers
-            ),
-            reply_markup= await changer_kb.staff_welcome_button(
-                uncompleted_transfers
-            )
-        )
-        await state.update_data(mainMsg = alertMsg)
+        elif not uncompleted_transfers:
 
-    elif not uncompleted_transfers:
+            changer_notifier_id = f'changer_notifier-{changer_id}'
+            scheduler.remove_job(changer_notifier_id)
+        
+    elif isinstance(logout_time, datetime):
+        logout_delta: timedelta = datetime.now() - logout_time
 
-        changer_notifier_id = f'changer_notifier-{changer_id}'
-        scheduler.remove_job(changer_notifier_id)
+        if uncompleted_transfers:
 
+            action_delta: timedelta = datetime.now() - last_action
+
+            if current_state == user_home_state:
+                if messageList:
+                    for i in messageList:
+                        i: Message
+                        try:
+                            await bot.delete_message(
+                                i.chat.id,
+                                i.message_id
+                            )
+                        except:
+                            pass
+                try:
+                    await bot.delete_message(
+                        mainMsg.chat.id,
+                        mainMsg.message_id
+                    )
+                except:
+                    pass
+                mainMsg: Message = await bot.send_message(
+                    changer_id,
+                    text=await msg_maker.start_message(state),
+                    reply_markup=await home_kb.user_home_inline_button(
+                        state
+                    )
+                )
+                await state.update_data(mainMsg = mainMsg)
+            elif current_state == FSMSteps.USER_CHANGE_STATE:
+                if messageList:
+                    for i in messageList:
+                        i: Message
+                        try:
+                            await bot.delete_message(
+                                i.chat.id,
+                                i.message_id
+                            )
+                        except:
+                            pass
+                if mainMsg:
+                    try:
+                        await bot.delete_message(
+                            mainMsg.chat.id,
+                            mainMsg.message_id
+                        )
+                    except:
+                        pass
+                mainMsg: Message = await bot.send_message(
+                    changer_id,
+                    text=await msg_maker.start_message(state),
+                    reply_markup=await home_kb.user_home_inline_button(
+                        state
+                    )
+                )
+                await state.update_data(mainMsg = mainMsg)
+
+            else:
+                if current_state == FSMSteps.SET_AMOUNT_STATE\
+                    or current_state == FSMSteps.USER_ENTER_BANK_NAME\
+                        or current_state == FSMSteps.SET_BUY_BANK_ACCOUNT:
+                    if action_delta.total_seconds() > 120:
+                        try:
+                            await mainMsg.delete()
+                        except:
+                            pass
+                        mainMsg: Message = bot.send_message(
+                            changer_id,
+                            text=await msg_maker.start_message(state),
+                            reply_markup=await home_kb.user_home_inline_button(
+                                state
+                            )
+                        )
+                        await state.update_data(mainMsg = mainMsg)
+                        await state.set_state(user_home_state)
+                        
+                elif current_state == FSMSteps.GET_USER_PROOF:
+                    if action_delta.total_seconds() > 480:
+                        try:
+                            await mainMsg.delete()
+                        except:
+                            pass
+                        mainMsg: Message = bot.send_message(
+                            changer_id,
+                            text=await msg_maker.start_message(state),
+                            reply_markup=await home_kb.user_home_inline_button(
+                                state
+                            )
+                        )
+                        await state.update_data(mainMsg = mainMsg)
+                        await state.set_state(user_home_state)
+        elif logout_delta.total_seconds() > 900 \
+            and not uncompleted_transfers:
+                try:
+                    scheduler.remove_job(
+                        f'changer_notifier-{changer_id}'
+                    )
+                except:
+                    pass
 
 
 async def transfers_getter_changer(
@@ -96,18 +207,22 @@ async def transfers_getter_changer(
     )
     exception: bool = response.get('exception')
     if not exception:
+
         new_user_transfers: dict = response.get('response')
         data: dict = await state.get_data()
         transfers: list = data.get('uncompleted_transfers')
         mainMsg: Message = data.get('mainMsg')
         current_state: FSMSteps = await state.get_state()
-        home_state: FSMSteps = FSMSteps.STAFF_HOME_STATE
+        staff_home_state: FSMSteps = FSMSteps.STAFF_HOME_STATE
+        logout_time: datetime | int = data.get('logout_time')
+
         if transfers != new_user_transfers:
 
             await state.update_data(
                 uncompleted_transfers = new_user_transfers
             )
-            if current_state == home_state:
+            if current_state == staff_home_state and\
+                not logout_time:
                 try:
                     await bot.delete_message(
                         mainMsg.chat.id,
@@ -130,9 +245,7 @@ async def transfers_getter_changer(
             changer_notifier_id = f'changer_notifier-{changer_id}'
             job_list: list = scheduler.get_jobs()
             job_id_list: list = [job.id for job in job_list]
-
             if changer_notifier_id not in job_id_list:
-
                 scheduler.add_job(
                     changer_notifier,
                     'interval',
@@ -142,7 +255,16 @@ async def transfers_getter_changer(
                         'changer_id': changer_id,
                     }
                 )
-
+        if isinstance(logout_time, datetime):
+            logout_delta: timedelta = datetime.now() - logout_time
+            if logout_delta.total_seconds() > 900 \
+                and not transfers:
+                    try:
+                        scheduler.remove_job(
+                            f'changer_getter-{changer_id}'
+                            )
+                    except:
+                        pass
 
 
 async def transfers_getter_user(
@@ -200,8 +322,10 @@ async def transfers_getter_user(
 
                 alertMsg: Message = await bot.send_message(
                     mainMsg.chat.id,
-                    text= await msg_maker.start_message(user_id, state),
-                    reply_markup= await home_kb.user_home_inline_button(user_id, state)
+                    text= await msg_maker.start_message(state),
+                    reply_markup= await home_kb.user_home_inline_button(
+                        state
+                    )
                 )
                 await state.update_data(mainMsg = alertMsg)
 

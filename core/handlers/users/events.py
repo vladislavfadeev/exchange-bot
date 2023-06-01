@@ -106,12 +106,8 @@ async def new_user_event(
                         pass
                 mainMsg = await bot.send_message(
                     call.from_user.id,
-                    text= await msg_maker.start_message(
-                        call.from_user.id,
-                        state
-                    ), 
+                    text= await msg_maker.start_message(state), 
                     reply_markup= await home_kb.user_home_inline_button(
-                        call.from_user.id,
                         state
                     )
                 )
@@ -128,8 +124,12 @@ async def new_user_event(
 
     elif callback_data.action == 'user_transfer_claims':
         transfer_id = callback_data.id
-        transfer: dict = [i for i in user_event if i['id']==transfer_id][0]
         messageList = data.get('messageList')
+        # transfer: dict = [i for i in user_event if i['id']==transfer_id][0]
+        for i in user_event:
+            i: dict
+            if i.get('id') == transfer_id:
+                transfer: dict = i
         patch_data = {
             'claims': True
         }
@@ -196,9 +196,8 @@ async def new_user_event(
                         pass
                 mainMsg = await bot.send_message(
                     call.from_user.id,
-                    text= await msg_maker.start_message(call.from_user.id, state),
+                    text= await msg_maker.start_message(state),
                     reply_markup= await home_kb.user_home_inline_button(
-                        call.from_user.id,
                         state
                     )
                 )

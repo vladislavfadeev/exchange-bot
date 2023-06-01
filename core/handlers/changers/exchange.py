@@ -278,7 +278,7 @@ async def staff_transfer_proof_getter(message: Message, state: FSMContext, bot: 
         except:
             pass
 
-        await state.set_state(FSMSteps.STAFF_TRANSFERS_PROOF)
+        await state.set_state(FSMSteps.STAFF_TRANSFRES)
 
 
 
@@ -298,7 +298,10 @@ async def setup_exchange_handlers(dp: Dispatcher):
         staff_show_transfers,
         StaffOfficeData.filter(
             
-            F.action == 'staff_show_transfers'
+            F.action.in_({
+                'staff_show_transfers',
+                'changer_missed_events'
+            })
         )
     )
     dp.callback_query.register(
