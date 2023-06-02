@@ -253,6 +253,42 @@ async def get_trouble_staff_contact():
     return builder.as_markup()
 
 
+async def final_step_timeout_kb():
+
+    builder = InlineKeyboardBuilder()
+    contact = appSettings.botSetting.troubleStaffId
+
+    builder.button(
+        text='👮🏻 Я перевел деньги',
+            callback_data=UserExchangeData(
+                id=0,
+                name='',
+                action='send_money_on_expired_offer',
+                is_returned=False
+            )
+    )
+    builder.button(
+        text='Давай сначала',
+        callback_data=UserHomeData(
+            action='cancel',
+            id=0
+        )
+    )
+    builder.adjust(1)
+    return builder.as_markup()
+
+async def timeout_kb():
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text='Давай сначала',
+        callback_data=UserHomeData(
+            action='cancel',
+            id=0
+        )
+    )
+    return builder.as_markup()
+
+
 
 async def user_show_event_kb(event: dict):
 

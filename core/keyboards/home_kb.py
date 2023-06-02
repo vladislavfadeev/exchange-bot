@@ -24,7 +24,7 @@ async def user_home_inline_button(state: FSMContext):
     else:
         action = {
             'info': 'Справка',
-            'time': 'Режим работы',
+            'support_us': 'Задонатить',
             'change': 'Обменять валюту',
             'user_new_events': f'Мои сообщения {value}',
         }

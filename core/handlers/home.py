@@ -1,5 +1,6 @@
 from datetime import datetime
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import Command
 from aiogram.types import Message
@@ -13,13 +14,12 @@ from core.utils import msg_maker
 from core.utils import  msg_var as msg
 from core.utils.bot_fsm import FSMSteps
 from core.middlwares.routes import r    # Dataclass whith all api routes
+from core.utils.state_cleaner import user_state_cleaner
 from core.utils.notifier import (
     alert_message_sender,
     transfers_getter_changer
 )
 import asyncio
-
-
 
 
 
@@ -91,6 +91,8 @@ async def command_start(
         # if user is not staff - send him usual start message
         # or he send commad /start for the first time
         if not mainMsg or not is_staff:
+            await state.update_data(user_start_change_time = None)
+            await user_state_cleaner(state)
             mainMsg =  await bot.send_message(
                 message.from_user.id,
                 text= await msg_maker.start_message(
@@ -154,6 +156,8 @@ async def command_login(
                 job_list: list = [job.id for job in apscheduler.get_jobs()]
                 # delete command message
                 await message.delete()
+                await user_state_cleaner(state)
+                await state.update_data(user_start_change_time = None)
                 if getter_id in job_list:
                     apscheduler.pause_job(getter_id)
                 if uncompleted_transfers is None:
@@ -346,6 +350,7 @@ async def user_main_menu(
     data: dict = await state.get_data()
     msg_list: list = data.get('messageList')
     mainMsg: Message = data.get('mainMsg')
+    is_staff: bool = data.get('isStuff')
     await state.update_data(messageList=[])
     # if user send command from message list
     if msg_list:
@@ -367,7 +372,7 @@ async def user_main_menu(
     except:
         pass
     # if in bot state have 'isStaff' key with bool value True
-    if data.get('isStuff'):
+    if is_staff:
         transfers: list = data.get('uncompleted_transfers')
         mainMsg = await bot.send_message(
             call.from_user.id,
@@ -380,6 +385,8 @@ async def user_main_menu(
         await state.set_state(FSMSteps.STAFF_HOME_STATE)
     # if 'isStaff' key does not exists or have bool value False
     else:
+        await user_state_cleaner(state)
+        await state.update_data(user_start_change_time = None)
         mainMsg = await bot.send_message(
             call.from_user.id,
             text= await msg_maker.start_message(
@@ -401,19 +408,19 @@ async def get_help(
     Show information about rules, for correctly using the bot 
     '''
     await call.message.edit_text(
-        text=msg.start_help_message,
+        text=msg.help_message,
         reply_markup= await home_kb.user_back_home_inline_button()
     )
 
 
-async def work_time(
+async def support_us(
         call: CallbackQuery,
 ):
     '''
     Show information about work time
     '''
     await call.message.edit_text(
-        text=msg.start_work_mode_info,
+        text=msg.support_us_message,
         reply_markup= await home_kb.user_back_home_inline_button()
     )
 
@@ -487,8 +494,8 @@ async def setup_home_handlers(dp: Dispatcher):
         UserHomeData.filter(F.action == 'info'),
     )
     dp.callback_query.register(
-        work_time,
-        UserHomeData.filter(F.action == 'time'),
+        support_us,
+        UserHomeData.filter(F.action == 'support_us'),
     )
 
 

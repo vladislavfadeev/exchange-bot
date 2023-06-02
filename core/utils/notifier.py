@@ -105,7 +105,7 @@ async def changer_notifier(
                     )
                 )
                 await state.update_data(mainMsg = mainMsg)
-            elif current_state == FSMSteps.USER_CHANGE_STATE:
+            elif current_state == FSMSteps.USER_CHANGE_STATE:   # add state to change process!!!
                 if messageList:
                     for i in messageList:
                         i: Message
@@ -152,22 +152,22 @@ async def changer_notifier(
                         await state.update_data(mainMsg = mainMsg)
                         await state.set_state(user_home_state)
                         
-                elif current_state == FSMSteps.GET_USER_PROOF:
-                    if action_delta.total_seconds() > 480:
-                        try:
-                            await mainMsg.delete()
-                        except:
-                            pass
-                        mainMsg: Message = bot.send_message(
-                            changer_id,
-                            text=await msg_maker.start_message(state),
-                            reply_markup=await home_kb.user_home_inline_button(
-                                state
-                            )
-                        )
-                        await state.update_data(mainMsg = mainMsg)
-                        await state.set_state(user_home_state)
-        elif logout_delta.total_seconds() > 900 \
+                # elif current_state == FSMSteps.GET_USER_PROOF:          # add more checks!!
+                #     if action_delta.total_seconds() > 480:
+                #         try:
+                #             await mainMsg.delete()
+                #         except:
+                #             pass
+                #         mainMsg: Message = bot.send_message(
+                #             changer_id,
+                #             text=await msg_maker.start_message(state),
+                #             reply_markup=await home_kb.user_home_inline_button(
+                #                 state
+                #             )
+                #         )
+                #         await state.update_data(mainMsg = mainMsg)
+                #         await state.set_state(user_home_state)
+        elif logout_delta.total_seconds() > 60 \
             and not uncompleted_transfers:
                 try:
                     scheduler.remove_job(
@@ -257,7 +257,7 @@ async def transfers_getter_changer(
                 )
         if isinstance(logout_time, datetime):
             logout_delta: timedelta = datetime.now() - logout_time
-            if logout_delta.total_seconds() > 900 \
+            if logout_delta.total_seconds() > 1800 \
                 and not transfers:
                     try:
                         scheduler.remove_job(

@@ -33,7 +33,8 @@ LOGGING_CONFIG = {
     'disable_existing_loggers': False,
     'formatters': {
         'basic': {
-            'format': '%(asctime)s - [%(levelname)s] - %(name)s - (%(filename)s).%(funcName)s(%(lineno)d) - %(message)s'
+            'format': '%(asctime)s - [%(levelname)s] - %(name)s '
+            '- (%(filename)s).%(funcName)s(%(lineno)d) - %(message)s'
         },
     },
     'handlers': {

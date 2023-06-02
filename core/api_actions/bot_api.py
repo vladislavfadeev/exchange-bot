@@ -40,11 +40,12 @@ class SimpleAPI():
                 detailUrl: str | NoneType = kwargs.get('detailUrl')
                 det: str = f'/{detailUrl}' if detailUrl else ''
                 exception: bool = True
-                code: int = response.status_code
                 try:
                     response_data: dict | NoneType = response.json()
+                    code: int = response.status_code
                 except:
                     response_data : NoneType = None
+                    code: NoneType = None
 
                 logging.exception(
                     f'method: {method}\n'

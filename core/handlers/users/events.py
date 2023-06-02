@@ -53,7 +53,6 @@ async def new_user_event(
                         photo=proof_id,
                         caption=await msg_maker.user_show_events(event),
                         reply_markup=await user_kb.user_show_event_kb(event),
-                        parse_mode='MARKDOWN',
                     )
                 elif changer_proof_type == 'document':
                     self_msg: Message = await bot.send_document(
@@ -61,7 +60,6 @@ async def new_user_event(
                         document=proof_id,
                         caption=await msg_maker.user_show_events(event),
                         reply_markup=await user_kb.user_show_event_kb(event),
-                        parse_mode='MARKDOWN',
                     )
                 messageList.append(self_msg)
             sep_msg: Message = await bot.send_message(

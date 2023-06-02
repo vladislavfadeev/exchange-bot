@@ -124,7 +124,6 @@ async def staff_show_transfer_detail(
                 photo = transfer_detail['userProof'],
                 caption = await msg_maker.staff_show_uncompleted_transfer_detail(transfer_detail),
                 reply_markup = await changer_kb.staff_show_transfer_detail_none_next(tr_id),
-                parse_mode='MARKDOWN',
 
             )
             await state.update_data(mainMsg = mainMsg)
@@ -136,7 +135,6 @@ async def staff_show_transfer_detail(
                 document = transfer_detail['userProof'],
                 caption = await msg_maker.staff_show_uncompleted_transfer_detail(transfer_detail),
                 reply_markup = await changer_kb.staff_show_transfer_detail_none_next(tr_id),
-                parse_mode='MARKDOWN',
             )
             await state.update_data(mainMsg = mainMsg)
 

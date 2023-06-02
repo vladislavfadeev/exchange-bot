@@ -8,13 +8,13 @@ from aiogram.types.callback_query import CallbackQuery
 from aiogram.types import Message
 from aiogram import F, Bot, Dispatcher
 
-from core.keyboards import home_kb
+from core.keyboards import home_kb, user_kb
 from core.middlwares.routes import r    # Dataclass whith all api routes
-from core.utils import msg_maker, msg_var
 from core.api_actions.bot_api import SimpleAPI
+from core.utils import msg_maker, msg_var
 from core.utils.bot_fsm import FSMSteps
 from core.utils import msg_var as msg
-from core.keyboards import user_kb
+from core.utils.state_cleaner import user_state_cleaner
 from core.utils.notifier import (
     alert_message_sender,
     transfers_getter_user
@@ -70,6 +70,7 @@ async def start_change(
         )
     )
     await state.update_data(mainMsg = mainMsg)
+    await state.set_state(FSMSteps.USER_CHANGE_STATE)
 
 
 
@@ -155,6 +156,7 @@ async def set_amount(
         )
     else:
         data: dict = await state.get_data()
+        await state.update_data(user_start_change_time = datetime.now())
         await state.update_data(messageList=[])
         # get selected offer info
         for i in data.get('offerList'):
@@ -234,7 +236,7 @@ async def set_amount_check(message: Message, state: FSMContext):
             ),
             reply_markup= await user_kb.set_amount_check_inlkb()
         )
-        await state.set_state(FSMSteps.USER_INIT_STATE)
+        await state.set_state(FSMSteps.USER_CHANGE_STATE)
 
 
 
@@ -295,7 +297,7 @@ async def choose_user_bank(
     Bot chek availability of bank accounts. If it does
     not exists - bot suggest create new.
      '''
-    await state.set_state(FSMSteps.SET_BUY_BANK_INIT)
+    # await state.set_state(FSMSteps.SET_BUY_BANK_INIT)
     data: dict = await state.get_data()
     offer: dict = data.get('selectedOffer')
     offer_type: str = offer.get('type')
@@ -457,12 +459,10 @@ async def apply_new_user_bank(
             data=postData,
             exp_code=[201, 400]
         )
-        exception: bool = response.get('exception')
         status_code: int = response.get('status_code')
         if status_code == 201:
             user_account: dict = response.get('response')
             await mainMsg.edit_text(
-                parse_mode='MARKDOWN',
                 text= await msg_maker.complete_set_new_bank(
                     data,
                     api_gateway
@@ -470,11 +470,11 @@ async def apply_new_user_bank(
                 reply_markup= await home_kb.user_back_home_inline_button()
             )
             await state.update_data(userAccount = user_account.get('id'))
+            await state.update_data(final_step = True)
             await state.set_state(FSMSteps.GET_USER_PROOF)
         elif status_code == 400:
             response_data: dict = response.get('response')
             await mainMsg.edit_text(
-                parse_mode='MARKDOWN',
                 text= await msg_maker.error_set_new_bank(account),
                 reply_markup= await user_kb.final_transfer_stage()
             )
@@ -514,6 +514,7 @@ async def use_old_user_bank(
             ),
             reply_markup= await home_kb.user_back_home_inline_button()
         )
+        await state.update_data(final_step = True)
         await state.set_state(FSMSteps.GET_USER_PROOF)
     else:
         await alert_message_sender(bot, call.from_user.id)
@@ -541,6 +542,7 @@ async def get_user_proof(
     sellCurrency: str = selected_offer.get('currency')
     sellAmount: float = data.get('sellAmount')
     rate: float = selected_offer.get('rate')
+    type: str = selected_offer.get('type')
     buyAmount: float = round(sellAmount * rate)
     accountId: int = message.from_user.id
     # delete user proof message from screen
@@ -583,6 +585,7 @@ async def get_user_proof(
             'userSendMoneyDate': datetime.now(),
             'userProofType': proofType,
             'userProof': fileId,
+            'type': type,
             'isCompleted': False,
             'claims': False,
             'changerAccepted': False
@@ -600,7 +603,8 @@ async def get_user_proof(
                 text= await msg_maker.user_inform(buyAmount, sellCurrency),
                 reply_markup = await user_kb.final_transfer_stage()
             )
-            await state.set_state(FSMSteps.USER_INIT_STATE)
+            await user_state_cleaner(state)
+            await state.set_state(FSMSteps.USER_CHANGE_STATE)
             # check if the task is not in joblist add it in
             getter_id = f'user_getter-{message.from_user.id}'
             job_list: list = apscheduler.get_jobs()
@@ -617,6 +621,8 @@ async def get_user_proof(
                 )
         else:
             await alert_message_sender(bot, message.from_user.id)
+
+
 
 
 
