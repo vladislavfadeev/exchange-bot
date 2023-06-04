@@ -1,6 +1,6 @@
 from environs import Env
 from dataclasses import dataclass
-
+import pytz
 
 
 @dataclass
@@ -11,6 +11,7 @@ class BotSettings:
     troubleStaff: str
     devStaffId: int
     log_dir: str
+    tz: pytz
 
 @dataclass
 class APISettings:
@@ -55,7 +56,8 @@ def get_settings(path: str):
             troubleStaff=env.str("TROUBLE_STAFF"),
             troubleStaffId=env.int("TROUBLE_STAFF_ID"),
             devStaffId=env.int("DEV_STAFF_ID"),
-            log_dir=env.str("LOGFILE_DIR")
+            log_dir=env.str("LOGFILE_DIR"),
+            tz=pytz.timezone(env.str("TIME_ZONE"))
         ),
         apiSettings=APISettings(
             baseUrl=env.str("BASE_URL"),

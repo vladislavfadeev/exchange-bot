@@ -7,9 +7,11 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types.callback_query import CallbackQuery
 from aiogram.types import Message
 from aiogram import F, Bot, Dispatcher
+import pytz
 
 from core.keyboards import home_kb, user_kb
 from core.middlwares.routes import r    # Dataclass whith all api routes
+from core.middlwares.settigns import appSettings
 from core.api_actions.bot_api import SimpleAPI
 from core.utils import msg_maker, msg_var
 from core.utils.bot_fsm import FSMSteps
@@ -155,8 +157,11 @@ async def set_amount(
             reply_markup= await home_kb.user_back_home_inline_button()
         )
     else:
+        tz: pytz = appSettings.botSetting.tz
         data: dict = await state.get_data()
-        await state.update_data(user_start_change_time = datetime.now())
+        await state.update_data(
+            user_start_change_time = tz.localize(datetime.now())
+        )
         await state.update_data(messageList=[])
         # get selected offer info
         for i in data.get('offerList'):
@@ -232,7 +237,8 @@ async def set_amount_check(message: Message, state: FSMContext):
             text= await msg_maker.show_user_buy_amount(
                 amount,
                 offerData['rate'],
-                offerData['currency']
+                offerData['currency'],
+                offerData['type']
             ),
             reply_markup= await user_kb.set_amount_check_inlkb()
         )
@@ -328,16 +334,24 @@ async def choose_user_bank(
         if banks_data and callback_data.name != 'set_new':
             await state.update_data(changerBank = callback_data.id)        
             await call.message.edit_text(
-                text = await msg_maker.choose_user_bank_from_db(),
-                reply_markup= await user_kb.choose_user_bank_from_db(banks_data)
+                text = await msg_maker.choose_user_bank_from_db(
+                    currency
+                ),
+                reply_markup= await user_kb.choose_user_bank_from_db(
+                    banks_data
+                )
             )
         # if accounts does not exists or user want create new
         else:
             if currency in ['RUB']:
                 if callback_data.name != 'set_new':
-                    await state.update_data(changerBank = callback_data.id)
+                    await state.update_data(
+                        changerBank = callback_data.id
+                    )
                 await call.message.edit_text(
-                    text=await msg_maker.enter_user_bank_name(currency)
+                    text=await msg_maker.enter_user_bank_name(
+                        currency
+                    )
                 )
                 await state.set_state(FSMSteps.USER_ENTER_BANK_NAME)
             else:
@@ -349,7 +363,9 @@ async def choose_user_bank(
                 if not bn_exception:
                     banks_name_data: list = banksName.get('response')
                     if callback_data.name != 'set_new':
-                        await state.update_data(changerBank = callback_data.id)
+                        await state.update_data(
+                            changerBank = callback_data.id
+                        )
                     await call.message.edit_text(
                         text=await msg_maker.set_user_bank_name(currency),
                         reply_markup= await user_kb.choose_bank_name_from_list(
@@ -369,6 +385,7 @@ async def user_new_bank_name_setter(
         bot: Bot
     ):
     '''
+    If user need enter his bank account name manualy.
     '''
     await message.delete()
     data: dict = await state.get_data()
@@ -446,8 +463,8 @@ async def apply_new_user_bank(
         )
     else:
         offer_type = offer.get('type')
-        currency = curr_id if offer_type == 'sell' else 3       # check id from db
-        postData = {
+        currency = curr_id if offer_type == 'sell' else 3   # check id from db
+        postData = {                                        # it is ID of MNT currency
             "name": bankName,
             "bankAccount": account,
             "owner": message.from_user.id,
@@ -640,11 +657,6 @@ async def setup_exchande_handlers(dp: Dispatcher):
         FSMSteps.USER_ENTER_BANK_NAME,
         F.text
     )
-    # dp.message.register(
-    #     choose_sell_bank,
-    #     FSMSteps.SET_SELL_BANK,
-    #     F.text
-    # )
     dp.message.register(
         apply_new_user_bank,
         FSMSteps.SET_BUY_BANK_ACCOUNT,

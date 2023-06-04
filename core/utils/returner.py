@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
-from types import NoneType
-import logging
+import pytz
 
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.base import StorageKey
@@ -8,6 +7,7 @@ from aiogram.types import Message
 from aiogram import Bot, Dispatcher
 
 from core.middlwares.routes import r    # Dataclass whith all api routes
+from core.middlwares.settigns import appSettings
 from core.keyboards import changer_kb, user_kb
 from core.utils import msg_maker
 from core.utils.bot_fsm import FSMSteps
@@ -50,7 +50,7 @@ async def main_msg_returner(
             )
             data: dict = await state.get_data()
             mainMsg: Message = data.get('mainMsg')
-            last_action: datetime | NoneType = data.get('last_action')
+            last_action: datetime | None = data.get('last_action')
             message_list: list = data.get('messageList')
             transfers: dict = data.get('uncompleted_transfers')
             current_state: FSMSteps = await state.get_state()
@@ -104,7 +104,14 @@ async def user_exchange_returner(
         api_gateway: SimpleAPI
 ):
     '''
+    Every 30 seconds this function check the relevance of
+    current user's exchange order in compliance with
+    the changer's offer. If it is not match - the user will
+    be notified about this.
     '''
+    # get current TZ from settings
+    tz: pytz = appSettings.botSetting.tz
+    # get all users ID from backend
     response: dict = await api_gateway.get(
         path=r.homeRoutes.userInit,
         exp_code=[200]
@@ -112,6 +119,7 @@ async def user_exchange_returner(
     exception: bool = response.get('exception')
     if not exception:
         user_list: list = response.get('response')
+        # checking for each user from the list
         for user in user_list:
             state: FSMContext = FSMContext(
                 bot=bot,
@@ -122,39 +130,44 @@ async def user_exchange_returner(
                     bot_id=bot.id
                 )
             )
+            # get currnet data from user's state
             data: dict = await state.get_data()
             current_state: FSMSteps = await state.get_state()
+            is_staff: bool | None = data.get('isStuff')
             claim_state: FSMSteps = FSMSteps.USER_TIME_EXPIRED
             claim_proof_state: FSMSteps = FSMSteps.USER_TIME_EXPIRED_PROOF
-            is_staff: bool | NoneType = data.get('isStuff')
+            # if user has been already notified - we will not 
+            # do it again
             if is_staff or current_state ==claim_state\
                 or current_state == claim_proof_state:
                 continue
             user_start_change_time = data.get('user_start_change_time')
-            user_start_change_time: datetime | NoneType
+            # then, if the user has opened new exchange order
             if isinstance(user_start_change_time, datetime):
-                delta: timedelta = datetime.now() - user_start_change_time
+                time_now: datetime = tz.localize(datetime.now())
+                delta: timedelta = time_now - user_start_change_time
 
                 if delta.total_seconds() > 1200:
-                # if delta.total_seconds() > 120:
                     offer: dict = data.get('selectedOffer')
                     offer_id: int = offer.get('id')
+                    # get current status of selected offer by user.
                     response: dict = await api_gateway.get(
                         path=f'{r.userRoutes.offer}/{offer_id}/offer_valid_checker',
                         exp_code=[200]
                     )
                     exception: bool = response.get('exception')
-
                     if not exception:
                         response_data: dict = response.get('response')
-                        changer_online: bool = response.get('owner_online')
+                        changer_online: bool = response_data.get('owner_online')
                         edit_time: datetime = datetime.strptime(
                             response_data.get('edited'),
-                            '%Y-%m-%dT%H:%M:%S.%fZ'
+                            '%Y-%m-%dT%H:%M:%S.%f%z'
                         )
-                        if edit_time < user_start_change_time\
+                        # if it has been changed or changer is not online
+                        if edit_time > user_start_change_time\
                             or not changer_online:
                             mainMsg: Message = data.get('mainMsg')
+                            # delete current user's message
                             try:
                                 await bot.delete_message(
                                     mainMsg.chat.id,
@@ -164,6 +177,10 @@ async def user_exchange_returner(
                                 pass
                             final_step: bool = data.get('final_step')
                             if final_step:
+                                # if user is at the final step of exchange order
+                                # we send him message, were ask him :
+                                # "Are you send money to changer?" If yes, 
+                                # then he start sending info about his situation to admin. 
                                 mainMsg: Message = await bot.send_message(
                                     user,
                                     text=await msg_maker.final_step_timeout_message(),

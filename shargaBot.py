@@ -21,6 +21,7 @@ from create_storage import (
 )
 
 
+
 async def updater_job():
     job_list: list = scheduler.get_jobs()
     job_id_list: list = [job.id for job in job_list]

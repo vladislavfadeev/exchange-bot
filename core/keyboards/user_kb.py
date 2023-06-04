@@ -60,7 +60,7 @@ async def show_offer_list_kb(offer):
     '''
     builder = InlineKeyboardBuilder()
     builder.button(
-        text='✅ Обменять тут',
+        text='✅ Обменять здесь',
         callback_data=UserExchangeData(
             id=offer['id'],
             name='',

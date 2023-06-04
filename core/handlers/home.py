@@ -54,7 +54,11 @@ async def command_start(
     )
     # get request status
     exception: bool = response.get('exception')
+    code: int = response.get('status_code')
     if not exception:
+        if code == 201:
+            del_message = await message.answer('.')
+            await del_message.delete()
         # if mainMsg is exists - refresh it for correctly bot working
         if mainMsg:
             try:

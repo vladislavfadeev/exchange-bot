@@ -23,10 +23,10 @@ async def user_home_inline_button(state: FSMContext):
         )
     else:
         action = {
-            'info': 'Справка',
-            'support_us': 'Задонатить',
-            'change': 'Обменять валюту',
-            'user_new_events': f'Мои сообщения {value}',
+            'info': '📝 Справка',
+            'support_us': '💰 Донат',
+            'change': '💳 Обменять валюту',
+            'user_new_events': f'✉ Мои сообщения {value}',
         }
 
         for i in action.keys():
