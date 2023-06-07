@@ -14,7 +14,7 @@ from core.utils import msg_maker
 from core.utils import  msg_var as msg
 from core.utils.bot_fsm import FSMSteps
 from core.middlwares.routes import r    # Dataclass whith all api routes
-from core.utils.state_cleaner import help_message_updater, user_state_cleaner
+from core.utils.state_cleaner import user_state_cleaner
 from core.utils.notifier import (
     alert_message_sender,
     transfers_getter_changer
