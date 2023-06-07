@@ -14,7 +14,7 @@ from core.utils import msg_maker
 from core.utils import  msg_var as msg
 from core.utils.bot_fsm import FSMSteps
 from core.middlwares.routes import r    # Dataclass whith all api routes
-from core.utils.state_cleaner import user_state_cleaner
+from core.utils.state_cleaner import help_message_updater, user_state_cleaner
 from core.utils.notifier import (
     alert_message_sender,
     transfers_getter_changer
@@ -35,10 +35,11 @@ async def command_start(
     - Help; Working time; Start change; My messages
     '''
     # delete user command message 
-    await message.delete()
+    # await message.delete()
 
     data: dict = await state.get_data()
     mainMsg: Message = data.get('mainMsg')
+    helpMsg: Message = data.get('helpMsg')
     msg_list: list = data.get('messageList')
     is_staff: bool = data.get('isStuff')
     await state.update_data(messageList=[])
@@ -54,11 +55,7 @@ async def command_start(
     )
     # get request status
     exception: bool = response.get('exception')
-    code: int = response.get('status_code')
     if not exception:
-        if code == 201:
-            del_message = await message.answer('.')
-            await del_message.delete()
         # if mainMsg is exists - refresh it for correctly bot working
         if mainMsg:
             try:
@@ -95,6 +92,7 @@ async def command_start(
         # if user is not staff - send him usual start message
         # or he send commad /start for the first time
         if not mainMsg or not is_staff:
+            await state.update_data(helpMsg = helpMsg)
             await state.update_data(user_start_change_time = None)
             await user_state_cleaner(state)
             mainMsg =  await bot.send_message(
@@ -159,7 +157,7 @@ async def command_login(
                 getter_id = f'user_getter-{message.from_user.id}'
                 job_list: list = [job.id for job in apscheduler.get_jobs()]
                 # delete command message
-                await message.delete()
+                # await message.delete()
                 await user_state_cleaner(state)
                 await state.update_data(user_start_change_time = None)
                 if getter_id in job_list:
@@ -262,7 +260,6 @@ async def command_logout(
     mainMsg: Message = data.get('mainMsg')
     messageList: list = data.get('messageList')
     isStuff: bool = data.get('isStuff')
-    await message.delete()
     # if current user is staff
     if isStuff:
         if messageList:
@@ -329,6 +326,7 @@ async def command_logout(
             await alert_message_sender(bot, message.from_user.id)
     # if user have not staff status
     else:
+        await message.delete()
         del_msg = await bot.send_message(
             message.from_user.id,
             text = msg.user_not_loggin

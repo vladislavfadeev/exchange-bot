@@ -1,7 +1,6 @@
 from aiogram.fsm.context import FSMContext
 
 
-
 async def user_state_cleaner(state: FSMContext):
     '''
     '''
