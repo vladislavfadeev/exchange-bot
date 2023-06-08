@@ -218,7 +218,7 @@ async def accept_changer_transfer(transfer_id):
     builder = InlineKeyboardBuilder()
     actions = {
         'accept': '🤝 Подтвердить получение',
-        'decline': '👎 Перевод не получил',
+        'decline': '👎 Перевод не получен',
         'admin': '⚠️ Связаться с админом'
     
     }
@@ -297,7 +297,7 @@ async def user_show_event_kb(event: dict):
 
     actions = {
         'user_transfer_accepted': '🤝 Подтвердить перевод',
-        'user_transfer_claims': '⚠️ Перевод не получил'
+        'user_transfer_claims': '⚠️ Перевод не получен'
     }
 
     for key, value in actions.items():
