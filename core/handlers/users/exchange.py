@@ -260,20 +260,23 @@ async def choose_changer_bank(
     data: dict = await state.get_data()
     offer_data: dict = data.get('selectedOffer')
     offer_type: str = offer_data.get('type')
+    offer_id: int = offer_data.get('id')
     # get changer bank account depending of the offer type
     if offer_type == 'buy':
         currency = offer_data.get('currency')
         params = {
             'owner': offer_data.get("owner"),
             'isActive': True,
-            'currency__name': currency
+            'currency__name': currency,
+            'offers_curr__id': offer_id
         }
     elif offer_type == 'sell':
         currency = 'MNT'
         params = {
             'owner': offer_data.get("owner"),
             'isActive': True,
-            'currency__name': currency
+            'currency__name': currency,
+            'offers_curr__id': offer_id
         }
     response: dict = await api_gateway.get(
         path=r.userRoutes.changerBanks,
@@ -614,10 +617,11 @@ async def get_user_proof(
         )
         exception: bool = response.get('exception')
         if not exception:
+            curr: str = 'MNT' if type == 'buy' else sellCurrency
             # if all checks were sucsessful bot create new
             # task that will track the exchanger's response
             await mainMsg.edit_text(
-                text= await msg_maker.user_inform(buyAmount, sellCurrency),
+                text= await msg_maker.user_inform(buyAmount, curr),
                 reply_markup = await user_kb.final_transfer_stage()
             )
             await user_state_cleaner(state)
