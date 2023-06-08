@@ -39,7 +39,6 @@ async def command_start(
 
     data: dict = await state.get_data()
     mainMsg: Message = data.get('mainMsg')
-    helpMsg: Message = data.get('helpMsg')
     msg_list: list = data.get('messageList')
     is_staff: bool = data.get('isStuff')
     await state.update_data(messageList=[])
@@ -56,6 +55,7 @@ async def command_start(
     # get request status
     exception: bool = response.get('exception')
     if not exception:
+        await user_state_cleaner(state)
         # if mainMsg is exists - refresh it for correctly bot working
         if mainMsg:
             try:
@@ -92,9 +92,6 @@ async def command_start(
         # if user is not staff - send him usual start message
         # or he send commad /start for the first time
         if not mainMsg or not is_staff:
-            await state.update_data(helpMsg = helpMsg)
-            await state.update_data(user_start_change_time = None)
-            await user_state_cleaner(state)
             mainMsg =  await bot.send_message(
                 message.from_user.id,
                 text= await msg_maker.start_message(
@@ -159,7 +156,6 @@ async def command_login(
                 # delete command message
                 # await message.delete()
                 await user_state_cleaner(state)
-                await state.update_data(user_start_change_time = None)
                 if getter_id in job_list:
                     apscheduler.pause_job(getter_id)
                 if uncompleted_transfers is None:
@@ -311,17 +307,7 @@ async def command_logout(
             job_list: list = [job.id for job in apscheduler.get_jobs()]
             if getter_id in job_list:
                 apscheduler.resume_job(getter_id)
-            # remove other jobs from job list
             await state.update_data(logout_time = datetime.now())
-            # apscheduler.remove_job(
-            #     f'changer_getter-{message.from_user.id}'
-            # )
-            # try:
-            #     apscheduler.remove_job(
-            #         f'changer_notifier-{message.from_user.id}'
-            #     )
-            # except:
-            #     pass
         else:
             await alert_message_sender(bot, message.from_user.id)
     # if user have not staff status
@@ -388,7 +374,6 @@ async def user_main_menu(
     # if 'isStaff' key does not exists or have bool value False
     else:
         await user_state_cleaner(state)
-        await state.update_data(user_start_change_time = None)
         mainMsg = await bot.send_message(
             call.from_user.id,
             text= await msg_maker.start_message(
@@ -486,7 +471,7 @@ async def setup_home_handlers(dp: Dispatcher):
         command_logout,
         Command(commands=['logout'])
     )
-    dp.message.register(msg_dumps, F.text == 'get_info')
+    # dp.message.register(msg_dumps, F.text == 'get_info')
     dp.callback_query.register(
         user_main_menu,
         UserHomeData.filter(F.action == 'cancel'),

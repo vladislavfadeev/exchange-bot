@@ -11,3 +11,4 @@ async def user_state_cleaner(state: FSMContext):
     await state.update_data(userBank= None)
     await state.update_data(userAccount= None)
     await state.update_data(final_step= False)
+    await state.update_data(user_start_change_time = None)
