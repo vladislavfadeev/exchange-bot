@@ -276,7 +276,7 @@ async def choose_changer_bank(
             'owner': offer_data.get("owner"),
             'isActive': True,
             'currency__name': currency,
-            'offers_curr__id': offer_id
+            'offers_ref__id': offer_id
         }
     response: dict = await api_gateway.get(
         path=r.userRoutes.changerBanks,
