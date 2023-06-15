@@ -618,10 +618,11 @@ async def get_user_proof(
         exception: bool = response.get('exception')
         if not exception:
             curr: str = 'MNT' if type == 'buy' else sellCurrency
+            amount: int = sellAmount if type == 'sell' else buyAmount
             # if all checks were sucsessful bot create new
             # task that will track the exchanger's response
             await mainMsg.edit_text(
-                text= await msg_maker.user_inform(buyAmount, curr),
+                text= await msg_maker.user_inform(amount, curr),
                 reply_markup = await user_kb.final_transfer_stage()
             )
             await user_state_cleaner(state)

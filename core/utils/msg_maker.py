@@ -156,10 +156,17 @@ async def set_buy_bank_account(bankName):
     return message
 
 
-async def complete_set_new_bank(allData, api_gateway: SimpleAPI):
+async def complete_set_new_bank(allData: dict, api_gateway: SimpleAPI):
 
-    sellAmount = allData['sellAmount']
-    offerData = allData['selectedOffer']
+    sellAmount: float = allData.get('sellAmount')
+    offerData: dict = allData.get('selectedOffer')
+    rate: float = offerData.get('rate')
+    type: str = offerData.get('type')
+    buyAmount: float = round(sellAmount * rate)
+    type: str = offerData.get('type')
+    currency: str = offerData.get('currency')
+    curr: str = 'MNT' if type == 'sell' else currency
+    amount: int = sellAmount if type == 'buy' else buyAmount
 
     detailUrl = allData["changerBank"]
     response: dict = await api_gateway.get_detail(
@@ -172,7 +179,7 @@ async def complete_set_new_bank(allData, api_gateway: SimpleAPI):
 
         message = (
             '✅ <b>Реквизиты приняты!</b>\n'
-            f'👉 Теперь выполните перевод {sellAmount} {offerData["currency"]} '
+            f'👉 Выполните перевод {amount} {curr} '
             'на счет обменника, по реквизитам ниже:\n\n'
             f'🏦 Банк: {acc["name"]}\n'
             f'💳 Счет: <code>{acc["bankAccount"]}</code>\n\n'
@@ -486,12 +493,15 @@ async def staff_show_uncompleted_transfers(transfer):
 
     type: str = 'Продажа' if type_var == 'sell' else 'Покупка'
 
+    curr: str = 'MNT' if type_var == 'sell' else sell_cur
+    amount: int = buy_amount if type_var == 'sell' else sell_amount
+
     message = (
         '✅ <b>Новый перевод!</b>\n\n'
         f'🔹 <b>ID {id}</b>\n'
         f'🔹 <b>{type} {sell_cur}</b>\n'
         f'🔹 Курс {rate}\n\n'
-        f'🔹 <b>Вам перевели {sell_amount} {sell_cur}</b>\n'
+        f'🔹 <b>Вам перевели {amount} {curr}</b>\n'
     )
 
     return message
@@ -512,6 +522,8 @@ async def staff_show_uncompleted_transfer_detail(transfer):
     user_bank_acc = transfer['userBank']['bankAccount']
 
     type: str = 'Продажа' if type_var == 'sell' else 'Покупка'
+    curr: str = 'MNT' if type_var == 'buy' else sell_cur
+    amount: int = buy_amount if type_var == 'buy' else sell_amount
 
     message = (
         f'✅ <b>Перевод ID {id}</b>\n'
@@ -519,11 +531,11 @@ async def staff_show_uncompleted_transfer_detail(transfer):
         f'🔹 Курс{rate} - сумма {sell_amount} {sell_cur}\n'
         f'💳 Банк, на который пользователь сделал перевод:\n\n'
         f'{changer_bank_name}\n'
-        f'{changer_bank_acc}\n\n'
-        f'<b>Вы должны перевести {buy_amount} MNT</b>\n'
+        f'<code>{changer_bank_acc}</code>\n\n'
+        f'<b>Вы должны перевести {amount} {curr}</b>\n'
         f'<b>по следующим реквизитам</b> :\n\n'
         f'<b>{user_bank_name}</b>\n'
-        f'<u><code>{user_bank_acc}</code></u>\n\n'
+        f'<code>{user_bank_acc}</code>\n\n'
         '📢⚠️📢⚠️📢⚠️📢⚠️📢⚠️\n'
         '<b>После этого сразу пришлите подтверждение</b> '
         'в виде скриншота с платежной информацией или '
@@ -548,6 +560,8 @@ async def user_show_events(user_event: dict):
 
     user_bank_name = user_event['userBank']['name']
     user_bank_acc = user_event['userBank']['bankAccount']
+    curr: str = 'MNT' if type_var == 'buy' else sell_cur
+    amount: int = buy_amount if type_var == 'buy' else sell_amount
 
     message = (
         f'\nПеревод id {id}\n'
@@ -556,7 +570,7 @@ async def user_show_events(user_event: dict):
         f'💳 Банк, на который обменник сделал перевод:👇\n\n'
         f'{user_bank_name}\n'
         f'<code>{user_bank_acc}</code>\n\n'
-        f'Сумма: {buy_amount}\n\n'
+        f'Сумма: {amount} {curr}\n\n'
         '📢⚠️📢⚠️📢⚠️📢⚠️📢⚠️\n'
         '<b>Убедительная просьба!</b>\n'
         'Если вы получили деньги нажмите '

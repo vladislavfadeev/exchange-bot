@@ -280,7 +280,7 @@ async def final_step_timeout_kb():
 async def timeout_kb():
     builder = InlineKeyboardBuilder()
     builder.button(
-        text='Давай сначала',
+        text='Начать сначала',
         callback_data=UserHomeData(
             action='cancel',
             id=0
