@@ -393,6 +393,8 @@ async def user_new_bank_name_setter(
     await message.delete()
     data: dict = await state.get_data()
     mainMsg: Message = data.get('mainMsg')
+    offer: dict = data.get('selectedOffer')
+    currency: str = offer.get('currency')
   
     try:
         value: str = message.text
@@ -406,7 +408,7 @@ async def user_new_bank_name_setter(
     else:
         await state.update_data(userBank = value)
         await mainMsg.edit_text(
-            text=await msg_maker.set_buy_bank_account(value),
+            text=await msg_maker.set_buy_bank_account(value, currency),
             reply_markup=await home_kb.user_back_home_inline_button()
         )
         await state.set_state(FSMSteps.SET_BUY_BANK_ACCOUNT)   
