@@ -422,13 +422,17 @@ async def choose_new_user_bank_next(
     This handler calling if user want create new bank account,
     when he set name of bank on previous step (choose_user_bank)
     '''
+    data: dict = await state.get_data()
+    offer: dict = data.get('selectedOffer')
+    currency: str = offer.get('currency')
     # set bank name to bot state
     await state.update_data(userBank = callback_data.name)
     # set FSM state for correctly work next handler
     await state.set_state(FSMSteps.SET_BUY_BANK_ACCOUNT)
     await call.message.edit_text(
         text= await msg_maker.set_buy_bank_account(
-            callback_data.name
+            callback_data.name,
+            currency
         ),
         reply_markup= await home_kb.user_back_home_inline_button()
     )

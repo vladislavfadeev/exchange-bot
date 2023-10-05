@@ -1,6 +1,7 @@
 from aiogram.fsm.context import FSMContext
 from core.middlwares.routes import r    # Dataclass whith all api routes
 from core.api_actions.bot_api import SimpleAPI
+from core.utils.notifier import alert_message_sender
 
 
 
@@ -145,12 +146,14 @@ async def choose_user_bank_from_db(currency):
     return message
 
 
-async def set_buy_bank_account(bankName):
+async def set_buy_bank_account(bankName, currency):
+
+    account = 'вашей карты' if currency=='RUB' else 'вашего счета' 
 
     message = (
-        '✅ Укажите номер вашего счета в банке '
-        f'🏦 {bankName}, на который вы хотите '
-        'получить перевод от обменника.\n\n'
+        f'✅ Укажите номер {account} в банке '
+        f'🏦 {bankName}, для получения '
+        'перевода от обменника.\n\n'
         '⚠️ <b>Будьте предельно внимательны!</b> ⚠️'
     )
     return message
@@ -167,6 +170,7 @@ async def complete_set_new_bank(allData: dict, api_gateway: SimpleAPI):
     currency: str = offerData.get('currency')
     curr: str = 'MNT' if type == 'sell' else currency
     amount: int = sellAmount if type == 'buy' else buyAmount
+    acc_type: str = 'Карта №:' if curr=='RUB' else 'Счет №:'
 
     detailUrl = allData["changerBank"]
     response: dict = await api_gateway.get_detail(
@@ -182,13 +186,12 @@ async def complete_set_new_bank(allData: dict, api_gateway: SimpleAPI):
             f'👉 Выполните перевод {amount} {curr} '
             'на счет обменника, по реквизитам ниже:\n\n'
             f'🏦 Банк: {acc["name"]}\n'
-            f'💳 Счет: <code>{acc["bankAccount"]}</code>\n\n'
+            f'💳 {acc_type} <code>{acc["bankAccount"]}</code>\n\n'
             '⚠️ <b>Обязательно!</b>⚠️\n'
             'После перевода, ответным сообщением '
             'пришлите <b>скриншот или чек</b> с информацией о платеже'
         )
         return message
-
 
 
 async def user_inform(amount: int, currency: str):
@@ -465,6 +468,8 @@ async def staff_edit_offer_show(offer: dict):
 
 async def staff_show_editable_banks(bank: dict):
 
+    currency = bank["currency"]["name"]
+    account_type = 'Карта №:' if currency=='RUB' else 'Счет №:'
     alert_msg = ''
     if bank.get('will_deactivate') and bank.get('isActive'):
         alert_msg = (
@@ -472,10 +477,11 @@ async def staff_show_editable_banks(bank: dict):
         f'снимется {bank.get("will_deactivate")} предложения на обмен. '
         'Они отобразятся в разделе <b>Мои предложения</b> > <b>Не активные</b>'
         )
+    
     message = (
         f'💰 <b>Банк {bank["name"]}</b>\n\n'
-        f'💵 Валюта {bank["currency"]["name"]}\n'
-        f'💳 Счет: <code>{bank["bankAccount"]}</code>\n\n'
+        f'💵 Валюта {currency}\n'
+        f'💳 {account_type} <code>{bank["bankAccount"]}</code>\n\n'
         f'{alert_msg}'
     )
 
@@ -524,6 +530,7 @@ async def staff_show_uncompleted_transfer_detail(transfer):
     type: str = 'Продажа' if type_var == 'sell' else 'Покупка'
     curr: str = 'MNT' if type_var == 'buy' else sell_cur
     amount: int = buy_amount if type_var == 'buy' else sell_amount
+    acc_type: str = 'Карта №:' if curr=='RUB' else 'Счет №:'
 
     message = (
         f'✅ <b>Перевод ID {id}</b>\n'
@@ -535,6 +542,7 @@ async def staff_show_uncompleted_transfer_detail(transfer):
         f'<b>Вы должны перевести {amount} {curr}</b>\n'
         f'<b>по следующим реквизитам</b> :\n\n'
         f'<b>{user_bank_name}</b>\n'
+        f'{acc_type}'
         f'<code>{user_bank_acc}</code>\n\n'
         '📢⚠️📢⚠️📢⚠️📢⚠️📢⚠️\n'
         '<b>После этого сразу пришлите подтверждение</b> '

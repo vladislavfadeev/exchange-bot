@@ -409,9 +409,11 @@ async def stuff_create_new_offer_final(
         )
     # if all offer values are correctly - he allow post offer
     else:
+        message_text=msg.staff_create_new_offer_succes
         if callback_data.action == 'staff_post_offet_non_active':
             # if user want save new offer as draft
             post_data['isActive'] = False
+            message_text=msg.staff_create_new_offer_succes_non_active
         response: dict = await api_gateway.post(
             path=r.changerRoutes.myOffers,
             data=post_data,
@@ -420,7 +422,7 @@ async def stuff_create_new_offer_final(
         exception: bool = response.get('exception')
         if not exception:
             await call.message.edit_text(
-                text=msg.staff_create_new_offer_succes_non_active,
+                text=message_text,
                 reply_markup=await changer_kb.staff_create_new_offer_succes()
             )
         else:
