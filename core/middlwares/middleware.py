@@ -10,14 +10,12 @@ from apscheduler_di import ContextSchedulerDecorator
 from core.api_actions.bot_api import SimpleAPI
 
 
-
 class InstanceContextMiddleware(BaseMiddleware):
-
     def __init__(
         self,
         dp: Dispatcher,
         api_gateway: SimpleAPI,
-        scheduler: ContextSchedulerDecorator
+        scheduler: ContextSchedulerDecorator,
     ):
         super().__init__()
         self._scheduler = scheduler
@@ -25,30 +23,28 @@ class InstanceContextMiddleware(BaseMiddleware):
         self._dp = dp
 
     async def __call__(
-            self,
-            handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
-            event: TelegramObject,
-            data:Dict[str, Any]
-        ):
+        self,
+        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+        event: TelegramObject,
+        data: Dict[str, Any],
+    ):
         data["apscheduler"] = self._scheduler
-        data['api_gateway'] = self._api_gateway
+        data["api_gateway"] = self._api_gateway
         data["dp"] = self._dp
         return await handler(event, data)
-    
 
 
 class LastActionMiddleware(BaseMiddleware):
-
     def __init__(self, bot: Bot, dp: Dispatcher):
         super().__init__()
         self._bot = bot
         self._dp = dp
 
     async def __call__(
-            self,
-            handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
-            event: Update,
-            data:Dict[str, Any]
+        self,
+        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+        event: Update,
+        data: Dict[str, Any],
     ):
         if event.message:
             user_id: int = event.message.from_user.id
@@ -58,12 +54,8 @@ class LastActionMiddleware(BaseMiddleware):
         state: FSMContext = FSMContext(
             bot=self._bot,
             storage=self._dp.storage,
-            key=StorageKey(
-                chat_id=user_id,
-                user_id=user_id,
-                bot_id=self._bot.id
-            )
+            key=StorageKey(chat_id=user_id, user_id=user_id, bot_id=self._bot.id),
         )
         update_time: datetime = datetime.now()
-        await state.update_data(last_action = update_time)
+        await state.update_data(last_action=update_time)
         return await handler(event, data)

@@ -10,6 +10,7 @@ core/middlwares/__pycache__/*
 core/utils/__pycache__/*
 Dockerfile
 .env
+.venv/
 eee.py
 sharga_bot.log
 sharga_bot.log1

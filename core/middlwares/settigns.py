@@ -7,16 +7,18 @@ import pytz
 class BotSettings:
     botToken: str
     adminId: int
-    troubleStaffId : int
+    troubleStaffId: int
     troubleStaff: str
     devStaffId: int
     log_dir: str
     tz: pytz
 
+
 @dataclass
 class APISettings:
     baseUrl: str
     authToken: str
+
 
 @dataclass
 class StateStorage:
@@ -25,6 +27,7 @@ class StateStorage:
     db: str
     username: str
     passwd: str
+
 
 @dataclass
 class JobStorage:
@@ -41,11 +44,9 @@ class Settings:
     apiSettings: APISettings
     stateStorage: StateStorage
     jobStorage: JobStorage
-    
 
 
 def get_settings(path: str):
-    
     env = Env()
     env.read_env(path)
 
@@ -57,11 +58,10 @@ def get_settings(path: str):
             troubleStaffId=env.int("TROUBLE_STAFF_ID"),
             devStaffId=env.int("DEV_STAFF_ID"),
             log_dir=env.str("LOGFILE_DIR"),
-            tz=pytz.timezone(env.str("TIME_ZONE"))
+            tz=pytz.timezone(env.str("TIME_ZONE")),
         ),
         apiSettings=APISettings(
-            baseUrl=env.str("BASE_URL"),
-            authToken=env.str("BACKEND_AUTH_TOKEN")
+            baseUrl=env.str("BASE_URL"), authToken=env.str("BACKEND_AUTH_TOKEN")
         ),
         stateStorage=StateStorage(
             host=env.str("STATE_REDIS_HOST"),
@@ -80,5 +80,4 @@ def get_settings(path: str):
     )
 
 
-appSettings = get_settings('.env')
-
+appSettings = get_settings(".env")

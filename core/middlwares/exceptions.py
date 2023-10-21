@@ -1,6 +1,3 @@
-
-
-
 class MinAmountError(Exception):
     pass
 
@@ -15,7 +12,4 @@ class MaxLenError(Exception):
 
 class ResponseError(Exception):
     def __str__(self):
-        return(
-            'Responce status code does not '
-            'match the expected code'
-        )
+        return "Responce status code does not " "match the expected code"
