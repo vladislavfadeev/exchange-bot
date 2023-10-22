@@ -11,6 +11,7 @@ class FSMSteps(StatesGroup):
     SET_BUY_BANK_INIT = State()
     SET_BUY_BANK_ACCOUNT = State()
     GET_USER_PROOF = State()
+    USER_WAIT_INCOME_TR = State()
     USER_TIME_EXPIRED = State()
     USER_TIME_EXPIRED_PROOF = State()
 

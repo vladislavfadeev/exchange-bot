@@ -546,7 +546,7 @@ async def get_user_proof(
                 reply_markup=await user_kb.final_transfer_stage(),
             )
             await user_state_cleaner(state)
-            await state.set_state(FSMSteps.USER_CHANGE_STATE)
+            await state.set_state(FSMSteps.USER_WAIT_INCOME_TR)
             # check if the task is not in joblist add it in
             getter_id = f"user_getter-{message.from_user.id}"
             job_list: list = apscheduler.get_jobs()

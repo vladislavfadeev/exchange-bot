@@ -108,7 +108,8 @@ async def staff_show_transfer_detail(
                     transfer_detail
                 ),
                 reply_markup=await changer_kb.staff_show_transfer_detail_none_next(
-                    tr_id
+                    tr_id,
+                    transfer_detail.get('user')
                 ),
             )
             await state.update_data(mainMsg=mainMsg)
@@ -121,7 +122,8 @@ async def staff_show_transfer_detail(
                     transfer_detail
                 ),
                 reply_markup=await changer_kb.staff_show_transfer_detail_none_next(
-                    tr_id
+                    tr_id,
+                    transfer_detail.get('user')
                 ),
             )
             await state.update_data(mainMsg=mainMsg)

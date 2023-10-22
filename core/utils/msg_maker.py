@@ -41,9 +41,13 @@ async def offer_list_msg_maker(offer: dict):
     rbanks = ''
     cbanks = ''
     for rName in offer['refBanks']:
+        if rName['isDeleted'] == 'true' or rName['isActive'] == 'false':
+            continue
         rbanks += f'🔹 {rName["name"]}\n'
 
     for cName in offer['currencyBanks']:
+        if cName['isDeleted'] == 'true' or cName['isActive'] == 'false':
+            continue
         cbanks += f'🔹 {cName["name"]}\n'
 
     rbanks = "⚠️ Счет не назначен!" if not rbanks else rbanks
@@ -437,9 +441,13 @@ async def staff_edit_offer_show(offer: dict):
     rbanks = ''
     cbanks = ''
     for rName in offer['refBanks']:
+        if rName['isDeleted'] == 'true' or rName['isActive'] == 'false':
+            continue
         rbanks += f'👉 {rName["name"]}\n'
 
     for cName in offer['currencyBanks']:
+        if cName['isDeleted'] == 'true' or cName['isActive'] == 'false':
+            continue
         cbanks += f'👉 {cName["name"]}\n'
 
     rbanks = "⚠️ Счет не назначен!" if not rbanks else rbanks

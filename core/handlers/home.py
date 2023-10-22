@@ -39,10 +39,16 @@ async def command_start(
     # Send user identification data to backend
     response: dict = await api_gateway.post(
         path=r.homeRoutes.userInit,
-        data={"tg": message.from_user.id, "isActive": True},
+        data={
+            "tg": message.from_user.id,
+            "tg_username": message.from_user.username,
+            "name": message.from_user.first_name,
+            "lastName": message.from_user.last_name,
+            "isActive": True
+        },
         exp_code=[201, 400],
     )
-    # get request status
+    # get response status
     exception: bool = response.get("exception")
     if not exception:
         await user_state_cleaner(state)

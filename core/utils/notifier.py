@@ -231,7 +231,8 @@ async def transfers_getter_user(
         if user_events != new_events and new_events:
             await state.update_data(user_events=new_events)
 
-            if current_state == FSMSteps.USER_INIT_STATE:
+            if current_state == FSMSteps.USER_INIT_STATE or \
+                current_state == FSMSteps.USER_WAIT_INCOME_TR:
                 try:
                     await bot.delete_message(mainMsg.chat.id, mainMsg.message_id)
                 except:
