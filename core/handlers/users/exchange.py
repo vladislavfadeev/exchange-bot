@@ -334,6 +334,7 @@ async def user_new_bank_name_setter(message: Message, state: FSMContext, bot: Bo
     data: dict = await state.get_data()
     mainMsg: Message = data.get("mainMsg")
     offer: dict = data.get("selectedOffer")
+    offer_type: str = offer.get('type')
     currency: str = offer.get("currency")
 
     try:
@@ -348,7 +349,7 @@ async def user_new_bank_name_setter(message: Message, state: FSMContext, bot: Bo
     else:
         await state.update_data(userBank=value)
         await mainMsg.edit_text(
-            text=await msg_maker.set_buy_bank_account(value, currency),
+            text=await msg_maker.set_buy_bank_account(value, currency, offer_type),
             reply_markup=await home_kb.user_back_home_inline_button(),
         )
         await state.set_state(FSMSteps.SET_BUY_BANK_ACCOUNT)
@@ -363,13 +364,14 @@ async def choose_new_user_bank_next(
     """
     data: dict = await state.get_data()
     offer: dict = data.get("selectedOffer")
+    offer_type: str = offer.get('type')
     currency: str = offer.get("currency")
     # set bank name to bot state
     await state.update_data(userBank=callback_data.name)
     # set FSM state for correctly work next handler
     await state.set_state(FSMSteps.SET_BUY_BANK_ACCOUNT)
     await call.message.edit_text(
-        text=await msg_maker.set_buy_bank_account(callback_data.name, currency),
+        text=await msg_maker.set_buy_bank_account(callback_data.name, currency, offer_type),
         reply_markup=await home_kb.user_back_home_inline_button(),
     )
 

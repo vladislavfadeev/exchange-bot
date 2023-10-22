@@ -41,12 +41,12 @@ async def offer_list_msg_maker(offer: dict):
     rbanks = ''
     cbanks = ''
     for rName in offer['refBanks']:
-        if rName['isDeleted'] == 'true' or rName['isActive'] == 'false':
+        if rName['isDeleted'] == True or rName['isActive'] == False:
             continue
         rbanks += f'🔹 {rName["name"]}\n'
 
     for cName in offer['currencyBanks']:
-        if cName['isDeleted'] == 'true' or cName['isActive'] == 'false':
+        if cName['isDeleted'] == True or cName['isActive'] == False:
             continue
         cbanks += f'🔹 {cName["name"]}\n'
 
@@ -150,9 +150,9 @@ async def choose_user_bank_from_db(currency):
     return message
 
 
-async def set_buy_bank_account(bankName, currency):
+async def set_buy_bank_account(bankName, currency, type):
 
-    account = 'вашей карты' if currency=='RUB' else 'вашего счета' 
+    account = 'вашей карты' if currency=='RUB' and type=='sell' else 'вашего счета' 
 
     message = (
         f'✅ Укажите номер {account} в банке '
@@ -174,7 +174,8 @@ async def complete_set_new_bank(allData: dict, api_gateway: SimpleAPI):
     currency: str = offerData.get('currency')
     curr: str = 'MNT' if type == 'sell' else currency
     amount: int = sellAmount if type == 'buy' else buyAmount
-    acc_type: str = 'Карта №:' if curr=='RUB' else 'Счет №:'
+    offer_type: str = offerData.get('type')
+    acc_type: str = 'Карта №:' if curr=='RUB' and offer_type=='buy' else 'Счет №:'
 
     detailUrl = allData["changerBank"]
     response: dict = await api_gateway.get_detail(
@@ -441,12 +442,12 @@ async def staff_edit_offer_show(offer: dict):
     rbanks = ''
     cbanks = ''
     for rName in offer['refBanks']:
-        if rName['isDeleted'] == 'true' or rName['isActive'] == 'false':
+        if rName['isDeleted'] == True or rName['isActive'] == False:
             continue
         rbanks += f'👉 {rName["name"]}\n'
 
     for cName in offer['currencyBanks']:
-        if cName['isDeleted'] == 'true' or cName['isActive'] == 'false':
+        if cName['isDeleted'] == True or cName['isActive'] == False:
             continue
         cbanks += f'👉 {cName["name"]}\n'
 
@@ -538,7 +539,7 @@ async def staff_show_uncompleted_transfer_detail(transfer):
     type: str = 'Продажа' if type_var == 'sell' else 'Покупка'
     curr: str = 'MNT' if type_var == 'buy' else sell_cur
     amount: int = buy_amount if type_var == 'buy' else sell_amount
-    acc_type: str = 'Карта №:' if curr=='RUB' else 'Счет №:'
+    acc_type: str = 'Карта №:' if curr=='RUB' and type_var == 'sell' else 'Счет №:'
 
     message = (
         f'✅ <b>Перевод ID {id}</b>\n'

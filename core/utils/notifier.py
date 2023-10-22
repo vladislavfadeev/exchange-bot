@@ -244,6 +244,7 @@ async def transfers_getter_user(
                     reply_markup=await home_kb.user_home_inline_button(state),
                 )
                 await state.update_data(mainMsg=alertMsg)
+                await state.set_state(FSMSteps.USER_INIT_STATE)
 
         elif not new_events:
             params = {

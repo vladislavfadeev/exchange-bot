@@ -215,7 +215,12 @@ async def staff_transfer_proof_getter(message: Message, state: FSMContext, bot: 
     await message.delete()
     data: dict = await state.get_data()
     mainMsg: Message = data.get("mainMsg")
+    transfers: list = data.get("uncompleted_transfers")
     transfer_id: int = data.get("ansvered_transfer_id")
+    for i in transfers:
+        i: dict
+        if i.get("id") == transfer_id:
+            transfer_detail: dict = i
     try:
         if message.photo:
             fileId = message.photo[-1].file_id
@@ -236,7 +241,10 @@ async def staff_transfer_proof_getter(message: Message, state: FSMContext, bot: 
             pass
     else:
         await mainMsg.edit_reply_markup(
-            reply_markup=await changer_kb.staff_show_transfer_detail_accept(transfer_id)
+            reply_markup=await changer_kb.staff_show_transfer_detail_accept(
+                transfer_id,
+                transfer_detail.get('user')
+            )
         )
         await state.update_data(proof_type=proofType)
         await state.update_data(proof_id=fileId)

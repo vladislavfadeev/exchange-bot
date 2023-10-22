@@ -535,7 +535,7 @@ async def staff_show_transfer_detail_none_next(transfer_id, user_id):
     return builder.as_markup()
 
 
-async def staff_show_transfer_detail_accept(transfer_id):
+async def staff_show_transfer_detail_accept(transfer_id, user_id):
     contact = appSettings.botSetting.troubleStaffId
 
     builder = InlineKeyboardBuilder()
@@ -550,6 +550,11 @@ async def staff_show_transfer_detail_accept(transfer_id):
     builder.button(
         text="👮🏻 Связаться с админом",
         url=f"tg://user?id={contact}",
+        callback_data=URLData(url=""),
+    )
+    builder.button(
+        text="👨🏻‍💼 Связаться с пользователем",
+        url=f"tg://user?id={user_id}",
         callback_data=URLData(url=""),
     )
     builder.button(
