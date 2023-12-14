@@ -165,6 +165,9 @@ async def transfers_getter_changer(
         staff_home_state: FSMSteps = FSMSteps.STAFF_HOME_STATE
         logout_time: datetime | int = data.get("logout_time")
 
+        if not new_user_transfers:
+            await state.update_data(uncompleted_transfers=new_user_transfers)
+
         if transfers != new_user_transfers:
             await state.update_data(uncompleted_transfers=new_user_transfers)
             if current_state == staff_home_state and not logout_time:

@@ -125,9 +125,11 @@ async def user_exchange_returner(bot: Bot, dp: Dispatcher, api_gateway: SimpleAP
                     # get current status of selected offer by user.
                     response: dict = await api_gateway.get(
                         path=f"{r.userRoutes.offer}/{offer_id}/offer_valid_checker",
-                        exp_code=[200],
+                        exp_code=[200, 404], # костыль
                     )
                     exception: bool = response.get("exception")
+                    if response.get('status_code') == 404:
+                        continue
                     if not exception:
                         response_data: dict = response.get("response")
                         changer_online: bool = response_data.get("owner_online")

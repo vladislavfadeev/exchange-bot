@@ -44,7 +44,7 @@ async def command_start(
             "tg_username": message.from_user.username,
             "name": message.from_user.first_name,
             "lastName": message.from_user.last_name,
-            "isActive": True
+            "isActive": True,
         },
         exp_code=[201, 400],
     )
