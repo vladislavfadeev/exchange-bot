@@ -21,14 +21,14 @@ async def updater_job():
     returner_id = "changer_returner"
     user_exchange_returner_id = "user_exchange_returner"
 
-    if main_msg_updater_id not in job_id_list:
-        scheduler.add_job(
-            main_msg_updater,
-            "cron",
-            day_of_week="mon-sun",
-            hour="2, 5",
-            id=main_msg_updater_id,
-        )
+    # if main_msg_updater_id not in job_id_list:
+    #     scheduler.add_job(
+    #         main_msg_updater,
+    #         "cron",
+    #         day_of_week="mon-sun",
+    #         hour="2, 5",
+    #         id=main_msg_updater_id,
+    #     )
     if returner_id not in job_id_list:
         scheduler.add_job(main_msg_returner, "interval", seconds=30, id=returner_id)
     if user_exchange_returner_id not in job_id_list:
@@ -67,7 +67,7 @@ async def main():
         #     appSettings.botSetting.adminId,
         #     'Bot has been stoped!'
         # )
-        scheduler.remove_job("main_msg_updater")
+        # scheduler.remove_job("main_msg_updater")
         scheduler.remove_job("changer_returner")
         scheduler.remove_job("user_exchange_returner")
         await bot.session.close()

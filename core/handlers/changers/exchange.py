@@ -51,7 +51,9 @@ async def staff_show_transfers(
             self_msg = await bot.send_message(
                 call.from_user.id,
                 text=await msg_maker.staff_show_uncompleted_transfers(tr),
-                reply_markup=await changer_kb.staff_show_transfers(tr["id"]),
+                reply_markup=await changer_kb.staff_show_transfers(
+                    tr["id"], tr["user"]
+                ),
             )
             messageList.append(self_msg)
 
@@ -108,8 +110,7 @@ async def staff_show_transfer_detail(
                     transfer_detail
                 ),
                 reply_markup=await changer_kb.staff_show_transfer_detail_none_next(
-                    tr_id,
-                    transfer_detail.get('user')
+                    tr_id, transfer_detail.get("user")
                 ),
             )
             await state.update_data(mainMsg=mainMsg)
@@ -122,8 +123,7 @@ async def staff_show_transfer_detail(
                     transfer_detail
                 ),
                 reply_markup=await changer_kb.staff_show_transfer_detail_none_next(
-                    tr_id,
-                    transfer_detail.get('user')
+                    tr_id, transfer_detail.get("user")
                 ),
             )
             await state.update_data(mainMsg=mainMsg)
@@ -242,8 +242,7 @@ async def staff_transfer_proof_getter(message: Message, state: FSMContext, bot: 
     else:
         await mainMsg.edit_reply_markup(
             reply_markup=await changer_kb.staff_show_transfer_detail_accept(
-                transfer_id,
-                transfer_detail.get('user')
+                transfer_id, transfer_detail.get("user")
             )
         )
         await state.update_data(proof_type=proofType)

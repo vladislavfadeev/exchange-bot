@@ -488,7 +488,7 @@ async def staff_edit_banks_accounts(account_id, isActive):
     return builder.as_markup()
 
 
-async def staff_show_transfers(transfer_id):
+async def staff_show_transfers(transfer_id, user_id):
     builder = InlineKeyboardBuilder()
 
     builder.button(
@@ -496,6 +496,11 @@ async def staff_show_transfers(transfer_id):
         callback_data=StaffEditData(
             id=transfer_id, action="staff_transfers_get_detail", value=""
         ),
+    )
+    builder.button(
+        text="👨🏻‍💼 Написать пользователю",
+        url=f"tg://user?id={user_id}",
+        callback_data=URLData(url=""),
     )
 
     builder.adjust(1)
