@@ -6,6 +6,7 @@ class HomeRoutes:
     """Dataclass include routes for "home" handlers."""
 
     userInit: str
+    rate: str
 
 
 @dataclass
@@ -17,6 +18,7 @@ class UserRoutes:
     userBanks: str
     banksNameList: str
     transactions: str
+    crypto_orders: str
 
 
 @dataclass
@@ -36,6 +38,7 @@ class KeysRoutes:
     """Routes for all keyboard making functions."""
 
     currencyList: str
+    cr_currency_list: str
 
 
 @dataclass
@@ -50,6 +53,7 @@ def get_routes():
     return Routes(
         homeRoutes=HomeRoutes(
             userInit="/api/v1/user",
+            rate="/api/v1/get_rate"
         ),
         userRoutes=UserRoutes(
             offer="/api/v1/offer",
@@ -57,6 +61,7 @@ def get_routes():
             userBanks="api/v1/user_banks",
             banksNameList="api/v1/banks_name_list",
             transactions="/api/v1/transactions",
+            crypto_orders="/api/v1/crypto_orders"
         ),
         changerRoutes=ChangerRoutes(
             changerProfile="api/v1/changer_profile",
@@ -68,6 +73,7 @@ def get_routes():
         ),
         keysRoutes=KeysRoutes(
             currencyList="/api/v1/currency",
+            cr_currency_list="/api/v1/crypto_rate",
         ),
     )
 

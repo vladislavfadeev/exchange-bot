@@ -30,10 +30,17 @@ async def changer_notifier(changer_id: int, bot: Bot, dp: Dispatcher):
 
     mainMsg: Message = data.get("mainMsg")
     uncompleted_transfers: dict = data.get("uncompleted_transfers")
+    cr_orders: list = data.get("cr_orders")
     messageList: list = data.get("messageList")
 
+    new_order_exists = 0
+    if uncompleted_transfers:
+        new_order_exists += len(uncompleted_transfers)
+    if cr_orders:
+        new_order_exists += len(cr_orders)
+
     if not logout_time:
-        if uncompleted_transfers and current_state == FSMSteps.STAFF_HOME_STATE:
+        if new_order_exists and current_state == FSMSteps.STAFF_HOME_STATE:
             try:
                 await bot.delete_message(mainMsg.chat.id, mainMsg.message_id)
             except:
@@ -41,21 +48,21 @@ async def changer_notifier(changer_id: int, bot: Bot, dp: Dispatcher):
 
             alertMsg: Message = await bot.send_message(
                 mainMsg.chat.id,
-                text=await msg_maker.staff_welcome(uncompleted_transfers),
+                text=await msg_maker.staff_welcome(state),
                 reply_markup=await changer_kb.staff_welcome_button(
-                    uncompleted_transfers
+                    state
                 ),
             )
             await state.update_data(mainMsg=alertMsg)
 
-        elif not uncompleted_transfers:
+        elif not new_order_exists :
             changer_notifier_id = f"changer_notifier-{changer_id}"
             scheduler.remove_job(changer_notifier_id)
 
-    elif isinstance(logout_time, datetime):
+    elif isinstance(logout_time, datetime):   # 
         logout_delta: timedelta = datetime.now() - logout_time
 
-        if uncompleted_transfers:
+        if new_order_exists:
             action_delta: timedelta = datetime.now() - last_action
 
             if current_state == user_home_state:
@@ -130,7 +137,7 @@ async def changer_notifier(changer_id: int, bot: Bot, dp: Dispatcher):
                         )
                         await state.update_data(mainMsg=mainMsg)
                         await state.set_state(user_home_state)
-        elif logout_delta.total_seconds() > 60 and not uncompleted_transfers:
+        elif logout_delta.total_seconds() > 60 and not new_order_exists:
             try:
                 scheduler.remove_job(f"changer_notifier-{changer_id}")
             except:
@@ -152,50 +159,66 @@ async def transfers_getter_changer(
         "isCompleted": False,
         "changerAccepted": False,
     }
+    crypto_params = {
+        "changer": changer_id,
+        "is_complete": False,
+    }
     response: dict = await api_gateway.get(
         path=r.changerRoutes.transactions, params=params, exp_code=[200]
     )
+    cr_response: dict = await api_gateway.get(
+        path=r.userRoutes.crypto_orders, params=crypto_params, exp_code=[200]
+    )
     exception: bool = response.get("exception")
-    if not exception:
+    cr_exception: bool = cr_response.get("exception")
+    if not exception and not cr_exception:
         new_user_transfers: dict = response.get("response")
+        new_cr_orders: dict = cr_response.get("response")
         data: dict = await state.get_data()
         transfers: list = data.get("uncompleted_transfers")
+        cr_orders: list = data.get("cr_orders")
         mainMsg: Message = data.get("mainMsg")
         current_state: FSMSteps = await state.get_state()
         staff_home_state: FSMSteps = FSMSteps.STAFF_HOME_STATE
         logout_time: datetime | int = data.get("logout_time")
 
-        if not new_user_transfers:
+        if not new_user_transfers and not new_cr_orders:
             await state.update_data(uncompleted_transfers=new_user_transfers)
+            await state.update_data(cr_orders=new_cr_orders)
 
-        if transfers != new_user_transfers:
-            await state.update_data(uncompleted_transfers=new_user_transfers)
+        if transfers != new_user_transfers or cr_orders != new_cr_orders:
+
+            if transfers != new_user_transfers:
+                await state.update_data(uncompleted_transfers=new_user_transfers)
+            if cr_orders != new_cr_orders:
+                await state.update_data(cr_orders = new_cr_orders)
+
             if current_state == staff_home_state and not logout_time:
                 try:
                     await bot.delete_message(mainMsg.chat.id, mainMsg.message_id)
                 except:
                     pass
-                alert_tr: list = new_user_transfers
+                alert_tr: str = '1'
                 alertMsg: Message = await bot.send_message(
                     mainMsg.chat.id,
-                    text=await msg_maker.staff_welcome(alert_tr),
-                    reply_markup=await changer_kb.staff_welcome_button(alert_tr),
+                    text=await msg_maker.staff_welcome(state),
+                    reply_markup=await changer_kb.staff_welcome_button(state),
                 )
                 await state.update_data(mainMsg=alertMsg)
 
-            changer_notifier_id = f"changer_notifier-{changer_id}"
-            job_list: list = scheduler.get_jobs()
-            job_id_list: list = [job.id for job in job_list]
-            if changer_notifier_id not in job_id_list:
-                scheduler.add_job(
-                    changer_notifier,
-                    "interval",
-                    minutes=2,
-                    id=changer_notifier_id,
-                    kwargs={
-                        "changer_id": changer_id,
-                    },
-                )
+                changer_notifier_id = f"changer_notifier-{changer_id}"
+                job_list: list = scheduler.get_jobs()
+                job_id_list: list = [job.id for job in job_list]
+                if changer_notifier_id not in job_id_list:
+                    scheduler.add_job(
+                        changer_notifier,
+                        "interval",
+                        minutes=2,
+                        id=changer_notifier_id,
+                        kwargs={
+                            "changer_id": changer_id,
+                        },
+                    )
         if isinstance(logout_time, datetime):
             logout_delta: timedelta = datetime.now() - logout_time
             if logout_delta.total_seconds() > 1800 and not transfers:
@@ -203,6 +226,8 @@ async def transfers_getter_changer(
                     scheduler.remove_job(f"changer_getter-{changer_id}")
                 except:
                     pass
+
+
 
 
 async def transfers_getter_user(

@@ -29,6 +29,8 @@ async def updater_job():
     #         hour="2, 5",
     #         id=main_msg_updater_id,
     #     )
+    if main_msg_updater_id in job_id_list:
+        scheduler.remove_job("main_msg_updater")
     if returner_id not in job_id_list:
         scheduler.add_job(main_msg_returner, "interval", seconds=30, id=returner_id)
     if user_exchange_returner_id not in job_id_list:

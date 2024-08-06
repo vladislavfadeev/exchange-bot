@@ -27,6 +27,13 @@ async def staff_show_transfers(
     await state.set_state(FSMSteps.STAFF_TRANSFRES)
     data: dict = await state.get_data()
     uncompleted_transfers: list = data.get("uncompleted_transfers")
+    cr_orders: list = data.get("cr_orders")
+
+    new_order_exists = 0
+    if uncompleted_transfers:
+        new_order_exists += len(uncompleted_transfers)
+    if cr_orders:
+        new_order_exists += len(cr_orders)
 
     # if not uncompleted_transfers:
 
@@ -43,19 +50,34 @@ async def staff_show_transfers(
     #     uncompleted_transfers = response.json()
     #     await state.update_data(uncompleted_transfers = uncompleted_transfers)
 
-    if uncompleted_transfers:
+    if new_order_exists:
         await call.message.delete()
         messageList = []
 
-        for tr in uncompleted_transfers:
-            self_msg = await bot.send_message(
-                call.from_user.id,
-                text=await msg_maker.staff_show_uncompleted_transfers(tr),
-                reply_markup=await changer_kb.staff_show_transfers(
-                    tr["id"], tr["user"]
-                ),
-            )
-            messageList.append(self_msg)
+        if uncompleted_transfers:
+            for tr in uncompleted_transfers:
+                self_msg = await bot.send_message(
+                    call.from_user.id,
+                    text=await msg_maker.staff_show_uncompleted_transfers(tr),
+                    reply_markup=await changer_kb.staff_show_transfers(
+                        tr["id"], tr["user"]
+                    ),
+                )
+                messageList.append(self_msg)
+
+            await state.update_data(messageList=messageList)
+
+        if cr_orders:
+            for cr_tr in cr_orders:
+                self_msg = await bot.send_message(
+                    call.from_user.id,
+                    text=await msg_maker.staff_show_uncompleted_cr_transfers(cr_tr),
+                    reply_markup=await changer_kb.staff_show_cr_transfers(
+                        cr_tr["id"], cr_tr["user"]
+                    ),
+                )
+                messageList.append(self_msg)
+            await state.update_data(messageList=messageList)
 
         sep_msg = await bot.send_message(
             call.from_user.id,
@@ -65,7 +87,7 @@ async def staff_show_transfers(
         messageList.append(sep_msg)
         await state.update_data(messageList=messageList)
 
-    if not uncompleted_transfers:  # проверить корректность!
+    if not new_order_exists:  # проверить корректность!
         await call.message.edit_text(
             text=msg.staff_empty_uncompleted_transfers,
             reply_markup=await changer_kb.sfuff_cancel_button(),
@@ -260,6 +282,44 @@ async def staff_transfer_proof_getter(message: Message, state: FSMContext, bot: 
         await state.set_state(FSMSteps.STAFF_TRANSFRES)
 
 
+async def crypto_order_status_seter(
+    call: CallbackQuery,
+    state: FSMContext,
+    callback_data: StaffEditData,
+    api_gateway: SimpleAPI,
+    bot: Bot,
+):
+    data: dict = await state.get_data()
+    cr_orders: list = data.get("cr_orders")
+
+    if callback_data.action == "crypto_order_success":
+        patch_data = {
+            "is_complete": True,
+        }
+    else:
+        patch_data = {
+            "is_complete": True,
+            "is_declined": True,
+        }
+
+    response: dict = await api_gateway.patch(
+        path=r.userRoutes.crypto_orders,
+        detailUrl=callback_data.id,
+        data=patch_data,
+        exp_code=[200],
+    )
+    exception: bool = response.get("exception")
+    if not exception:
+        await call.answer("Выполнено!", show_alert=True)
+        await call.message.delete()
+        new_list = [i for i in cr_orders if i["id"] != callback_data.id]
+        await state.update_data(cr_orders=new_list)
+
+    else:
+        await alert_message_sender(bot, call.from_user.id)
+
+
+
 async def setup_exchange_handlers(dp: Dispatcher):
     """Register callback_querry handlers there."""
     dp.message.register(
@@ -284,4 +344,15 @@ async def setup_exchange_handlers(dp: Dispatcher):
                 }
             )
         ),
+    )
+    dp.callback_query.register(
+        crypto_order_status_seter,
+        StaffEditData.filter(
+            F.action.in_(
+                {
+                    "crypto_order_decline",
+                    "crypto_order_success",
+                }
+            )
+        )
     )

@@ -270,3 +270,64 @@ async def user_cancel_button():
     builder.adjust(1)
 
     return builder.as_markup()
+
+
+
+# cryptocurrency place ------------
+
+async def crypto_offer_list_kb_maker(crypto_pair):
+    builder = InlineKeyboardBuilder()
+
+    builder.button(
+        text=f'Продать {crypto_pair["pair_name"].split("/")[1]}',
+        callback_data=UserExchangeData(
+            id=crypto_pair["id"],
+            name=crypto_pair["pair_name"],
+            action="user_cr_ch_set_sell_amount",
+            is_returned=False,
+        )
+    )
+    builder.button(
+        text=f'Купить {crypto_pair["pair_name"].split("/")[1]}',
+        callback_data=UserExchangeData(
+            id=crypto_pair["id"],
+            name=crypto_pair["pair_name"],
+            action="user_cr_ch_set_buy_amount",
+            is_returned=False,
+        )
+    )
+    builder.adjust(2,)
+
+    return builder.as_markup()
+
+
+async def user_return_to_cr_offer_choice_button():
+    """Build InlineKeyboardButton with offer id for user choice"""
+
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text=f"↩ Вернуться к выбору предложений",
+        callback_data=UserHomeData(action="change_crypto", id=0),
+    )
+
+    return builder.as_markup()
+
+
+async def set_cr_amount_check_inlkb(cr_exch_type):
+    """ """
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text="⤵️ Согласен, продолжить",
+        callback_data=UserExchangeData(
+            id=0, name="", action="create_crypto_order", is_returned=False
+        ),
+    )
+    builder.button(
+        text="⤴️ Вернуться, ввести другую сумму",
+        callback_data=UserExchangeData(
+            id=0, name="", action=f"user_cr_ch_set_{cr_exch_type}_amount", is_returned=True
+        ),
+    )
+    builder.adjust(1)
+
+    return builder.as_markup()

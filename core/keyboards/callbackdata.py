@@ -1,3 +1,4 @@
+from sys import prefix
 from aiogram.filters.callback_data import CallbackData
 
 
@@ -25,3 +26,7 @@ class StaffEditData(CallbackData, prefix="staff_edit"):
 
 class URLData(CallbackData, prefix="url"):
     ...
+
+
+# class CryptoExchangeData(CallbackData, prefix="crypto_exchange_data"):
+    

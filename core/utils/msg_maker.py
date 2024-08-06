@@ -11,8 +11,16 @@ async def start_message(state: FSMContext):
     data: dict = await state.get_data()
     events: list = data.get('user_events')
     uncompleted_transfers: list = data.get('uncompleted_transfers')
+    cr_orders: list = data.get("cr_orders")
     insert: str = '<b>У вас новое сообщение!</b> ✉\n\n' if events else ''
+
+    new_order_exists = 0
     if uncompleted_transfers:
+        new_order_exists += len(uncompleted_transfers)
+    if cr_orders:
+        new_order_exists += len(cr_orders)
+    
+    if new_order_exists:
         message = (
             '⚠️ <b>У вас пропущенный входящий перевод!</b>\n\n'
             '<b>Нажмите кнопку ниже чтобы ответить.</b>'
@@ -264,11 +272,19 @@ async def timeout_message():
 
 
 
-async def staff_welcome(transfers):
-
+async def staff_welcome(state):
+    data: dict = await state.get_data()
     # stuff_name = f'{response["name"]} {response["lastName"]}'
-    value = len(transfers) if transfers else None
-    alert = f'<b>У вас есть неотвеченный перевод!</b>\n\n' if value else '💰'
+    uncompleted_transfers: list = data.get('uncompleted_transfers')
+    cr_orders: list = data.get("cr_orders")
+
+    new_order_exists = 0
+    if uncompleted_transfers:
+        new_order_exists += len(uncompleted_transfers)
+    if cr_orders:
+        new_order_exists += len(cr_orders)
+
+    alert = f'<b>У вас есть неотвеченный перевод!</b>\n\n' if new_order_exists else '💰'
 
     message = (
         f'{alert}'
@@ -625,6 +641,139 @@ async def error_set_new_bank(account: int):
         f'Если это так - просто повторите ввод еще раз. '
         f'Если вы уверены в правильности номера, сообщите '
         f'о возникшей ситуации администратору, он во всем разберется.'
+    )
+
+    return message
+
+
+async def rate_message_maker(response_data):
+    message = response_data[0].get('text')
+    return message
+
+
+
+# cryptocurrency place ------------
+
+
+
+
+async def set_cr_amount_msg_maker(choosen_pair):
+
+    message = (
+        f'✅ Ваш выбор принят!\n\n'
+        '<b>Дорогие пользователи!</b>\n'
+        'Обменники могут корректировать курс валют до нескольких раз '
+        'в день, поэтому условия по выбранному предложению действительны 20 минут.\n\n'
+        f'💵 <b>Введите сумму {choosen_pair["pair_name"].split("/")[1]} для обмена:</b>'
+        )
+    
+    return message
+
+
+async def crypto_offer_list_msg_maker(crypto_pair: dict):
+
+    try:
+        cr_name = crypto_pair.get('pair_name').split('/')[1]
+        fiat_name = crypto_pair.get('pair_name').split('/')[0]
+    except:
+        message = '<b>Отсутствуют активные предложения. Повторите позже.</b>'
+        return message
+    
+    score_data = crypto_pair.get('owner_score')
+    minAmount = '' if crypto_pair['min_amount'] == float(0) else f"Минимальная сумма: {crypto_pair['min_amount']} {cr_name}\n"
+    sell_rate = crypto_pair.get('sell_rate')
+    buy_rate = crypto_pair.get('buy_rate')
+    banks = crypto_pair.get('banks')
+    offer_name = crypto_pair.get('offer_name')
+    message = (
+        f'💱 <b>{offer_name} | сделок: {score_data["total_cr_transactions"]}</b>\n\n'
+        f'<b>{crypto_pair["pair_name"]}</b>\n'
+        f'Покупка: {sell_rate} {fiat_name} | Продажа: {buy_rate} {fiat_name}\n'
+        f'{minAmount}'
+        f'Банки: {banks}'
+    )
+    
+    return message
+
+
+
+async def min_cr_amount_error_msg_maker(offer_data):
+
+    cr_name = offer_data.get('pair_name').split('/')[1]
+
+    message = (
+        '⚠️ Вы указали сумму меньше, чем минимальная сумма '
+        'сделки, обозначенная обменником в данном объявлении.\n\n'
+        '↩ Вы можете вернуться к выбору предложений и выбрать '
+        'другой вариант или указать сумму в пределах:\n\n'
+        f'💰 от <b>{offer_data["min_amount"]} {cr_name}</b>'
+    )
+    return message
+
+
+async def show_user_buy_cr_amount(sellAmount, cr_exch_type, offer_data):
+
+    cr_name = offer_data.get('pair_name').split('/')[1]
+    fiat_name = offer_data.get('pair_name').split('/')[0]
+    buy_rate = offer_data.get('buy_rate')
+    sell_rate = offer_data.get('sell_rate')
+
+
+    message_sell =(
+        f'💸 Вы продаете: ⚡ {sellAmount} {cr_name}\n'
+        f'💰 Вы получаете: ⚡ {round(sellAmount * buy_rate)} {fiat_name}\n\n'
+        f'Хотите создать заявку?'
+    )
+   
+    message_buy =(
+        f'💸 Вы покупаете: ⚡ {sellAmount} {cr_name}\n'
+        f'💰 Вы заплатите: ⚡ {round(sellAmount * sell_rate)} {fiat_name}\n\n'
+        f'Хотите создать заявку?'
+    )    
+    return message_sell if cr_exch_type == 'sell' else message_buy
+
+
+async def set_cr_amount_returned_msg_maker(offer_data):
+
+    cr_name = offer_data.get('pair_name').split('/')[1]
+    message = f'🔹 Введите новую сумму {cr_name} которую хотите обменять:'
+
+    return message
+
+
+async def create_new_crypto_order_success(response_data):
+    order_id = response_data.get("id")
+    pair_name = response_data.get('pair_name')
+
+    message = (
+        f'Заявка на обмен <b>{pair_name} | №{order_id}</b> успешно отправлена. '
+        f'Скоро с вами свяжется менеджер для продолжения обмена.'
+    )
+
+    return message
+
+
+
+async def staff_show_uncompleted_cr_transfers(order):
+
+    id = order['id']
+    sell_amount = order['sell_amount']
+    buy_amount = order['buy_amount']
+    rate = order['rate']
+    order_type = order['order_type']
+    cr_name = order["pair_name"].split("/")[1]
+    fiat = order["pair_name"].split("/")[0]
+
+    _1 = f'🔹 <b>Вам переведут {sell_amount} {cr_name}</b>\n' if order_type=='sell' else f'🔹 <b>Вам переведут {buy_amount} {fiat}</b>\n'
+    _2 = f'🔹 <b>Вы переведете {buy_amount} {fiat}</b>\n' if order_type=='sell' else f'🔹 <b>Вы переведете {sell_amount} {cr_name}</b>\n'
+
+    message = (
+        '✅ <b>Новый крипто перевод!</b>\n\n'
+        f'🔹 <b>ID {id}</b>\n'
+        f'🔹 <b>{order_type} {cr_name}</b>\n'
+        f'🔹 Курс {rate}\n\n'
+        f'{_1}'
+        f'{_2}'
     )
 
     return message
