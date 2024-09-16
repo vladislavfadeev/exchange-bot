@@ -15,6 +15,10 @@ class FSMSteps(StatesGroup):
     USER_TIME_EXPIRED = State()
     USER_TIME_EXPIRED_PROOF = State()
 
+    USER_CR_CHANGE_STATE = State()
+    USER_CR_FINAL_CHANGE_STATE = State()
+    SET_CR_AMOUNT_STATE = State()
+
     STAFF_HOME_STATE = State()
     STUFF_INIT_STATE = State()
     STUFF_ACCOUNTS = State()

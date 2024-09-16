@@ -44,7 +44,7 @@ async def command_start(
             "tg_username": message.from_user.username,
             "name": message.from_user.first_name,
             "lastName": message.from_user.last_name,
-            "isActive": True
+            "isActive": True,
         },
         exp_code=[201, 400],
     )
@@ -69,11 +69,10 @@ async def command_start(
             # if user is staff - check state for new uncompleted
             # transfers for him and show it in his main message
             if is_staff:
-                transfers: list = data.get("uncompleted_transfers")
                 mainMsg: Message = await bot.send_message(
                     message.from_user.id,
-                    text=await msg_maker.staff_welcome(transfers),
-                    reply_markup=await changer_kb.staff_welcome_button(transfers),
+                    text=await msg_maker.staff_welcome(state),
+                    reply_markup=await changer_kb.staff_welcome_button(state),
                 )
                 await state.update_data(mainMsg=mainMsg)
                 await state.set_state(FSMSteps.STAFF_HOME_STATE)
@@ -175,9 +174,9 @@ async def command_login(
                     # send staff welcome message and save it in to bot state
                     mainMsg: Message = await bot.send_message(
                         message.from_user.id,
-                        text=await msg_maker.staff_welcome(uncompleted_transfers),
+                        text=await msg_maker.staff_welcome(state),
                         reply_markup=await changer_kb.staff_welcome_button(
-                            uncompleted_transfers
+                            state
                         ),
                     )
                     await state.update_data(mainMsg=mainMsg)
@@ -318,8 +317,8 @@ async def user_main_menu(
         transfers: list = data.get("uncompleted_transfers")
         mainMsg = await bot.send_message(
             call.from_user.id,
-            text=await msg_maker.staff_welcome(transfers),
-            reply_markup=await changer_kb.staff_welcome_button(transfers),
+            text=await msg_maker.staff_welcome(state),
+            reply_markup=await changer_kb.staff_welcome_button(state),
         )
         await state.update_data(mainMsg=mainMsg)
         await state.set_state(FSMSteps.STAFF_HOME_STATE)
@@ -346,16 +345,24 @@ async def get_help(
     )
 
 
-async def support_us(
+async def get_rate(
     call: CallbackQuery,
+    api_gateway: SimpleAPI
 ):
     """
-    Show information about work time
+    Show information about currency rate
     """
-    await call.message.edit_text(
-        text=msg.support_us_message,
-        reply_markup=await home_kb.user_back_home_inline_button(),
+    response: dict = await api_gateway.get(
+        path=r.homeRoutes.rate,
+        exp_code=[200],
     )
+    exception: bool = response.get("exception")
+    if not exception:
+        response_data = response.get("response")
+        await call.message.edit_text(
+            text=await msg_maker.rate_message_maker(response_data),
+            reply_markup=await home_kb.user_back_home_inline_button(),
+        )
 
 
 async def del_not_handled_message(message: Message, bot: Bot):
@@ -415,8 +422,8 @@ async def setup_home_handlers(dp: Dispatcher):
         UserHomeData.filter(F.action == "info"),
     )
     dp.callback_query.register(
-        support_us,
-        UserHomeData.filter(F.action == "support_us"),
+        get_rate,
+        UserHomeData.filter(F.action == "get_rate"),
     )
 
 

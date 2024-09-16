@@ -8,8 +8,9 @@ from aiogram import Bot, Dispatcher
 
 from core.middlwares.routes import r  # Dataclass whith all api routes
 from core.middlwares.settigns import appSettings
-from core.keyboards import changer_kb, user_kb
+from core.keyboards import changer_kb, user_kb, home_kb
 from core.utils import msg_maker
+from core.utils.state_cleaner import user_state_cleaner
 from core.utils.bot_fsm import FSMSteps
 from core.api_actions.bot_api import SimpleAPI
 
@@ -42,7 +43,6 @@ async def main_msg_returner(bot: Bot, dp: Dispatcher, api_gateway: SimpleAPI):
             mainMsg: Message = data.get("mainMsg")
             last_action: datetime | None = data.get("last_action")
             message_list: list = data.get("messageList")
-            transfers: dict = data.get("uncompleted_transfers")
             current_state: FSMSteps = await state.get_state()
             home_state: FSMSteps = FSMSteps.STAFF_HOME_STATE
             time: datetime = datetime.now()
@@ -69,8 +69,8 @@ async def main_msg_returner(bot: Bot, dp: Dispatcher, api_gateway: SimpleAPI):
                 # return user to main message
                 mainMsg: Message = await bot.send_message(
                     changer,
-                    text=await msg_maker.staff_welcome(transfers),
-                    reply_markup=await changer_kb.staff_welcome_button(transfers),
+                    text=await msg_maker.staff_welcome(state),
+                    reply_markup=await changer_kb.staff_welcome_button(state),
                     disable_notification=True,
                 )
                 # save new main message to FSM State
@@ -105,6 +105,7 @@ async def user_exchange_returner(bot: Bot, dp: Dispatcher, api_gateway: SimpleAP
             is_staff: bool | None = data.get("isStuff")
             claim_state: FSMSteps = FSMSteps.USER_TIME_EXPIRED
             claim_proof_state: FSMSteps = FSMSteps.USER_TIME_EXPIRED_PROOF
+            cr_final_state: FSMSteps = FSMSteps.USER_CR_FINAL_CHANGE_STATE
             # if user has been already notified - we will not
             # do it again
             if (
@@ -120,14 +121,34 @@ async def user_exchange_returner(bot: Bot, dp: Dispatcher, api_gateway: SimpleAP
                 delta: timedelta = time_now - user_start_change_time
 
                 if delta.total_seconds() > 1200:
+                    if current_state == cr_final_state:
+                        await user_state_cleaner(state)
+                        mainMsg: Message = data.get("mainMsg")
+                        try:
+                            await bot.delete_message(
+                                mainMsg.chat.id, mainMsg.message_id
+                            )
+                        except:
+                            pass
+                        mainMsg = await bot.send_message(
+                            user,
+                            text=await msg_maker.start_message(state),
+                            reply_markup=await home_kb.user_home_inline_button(state),
+                        )
+                        await state.update_data(mainMsg=mainMsg)
+                        await state.set_state(FSMSteps.USER_INIT_STATE)
+                        continue
+
                     offer: dict = data.get("selectedOffer")
                     offer_id: int = offer.get("id")
                     # get current status of selected offer by user.
                     response: dict = await api_gateway.get(
                         path=f"{r.userRoutes.offer}/{offer_id}/offer_valid_checker",
-                        exp_code=[200],
+                        exp_code=[200, 404], # костыль
                     )
                     exception: bool = response.get("exception")
+                    if response.get('status_code') == 404:
+                        continue
                     if not exception:
                         response_data: dict = response.get("response")
                         changer_online: bool = response_data.get("owner_online")

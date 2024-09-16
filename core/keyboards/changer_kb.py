@@ -10,9 +10,17 @@ from core.keyboards.callbackdata import (
 )
 
 
-async def staff_welcome_button(transfers):
-    value = len(transfers) if transfers else None
-    button_text = f"💰 Входящие переводы ({value})" if value else "💰 Входящие переводы"
+async def staff_welcome_button(state):
+    data: dict = await state.get_data()
+    uncompleted_transfers: list = data.get('uncompleted_transfers')
+    cr_orders: list = data.get("cr_orders")
+
+    new_order_exists = 0
+    if uncompleted_transfers:
+        new_order_exists += len(uncompleted_transfers)
+    if cr_orders:
+        new_order_exists += len(cr_orders)
+    button_text = f"💰 Входящие переводы ({new_order_exists})" if new_order_exists else "💰 Входящие переводы"
 
     builder = InlineKeyboardBuilder()
     actions = {
@@ -488,7 +496,7 @@ async def staff_edit_banks_accounts(account_id, isActive):
     return builder.as_markup()
 
 
-async def staff_show_transfers(transfer_id):
+async def staff_show_transfers(transfer_id, user_id):
     builder = InlineKeyboardBuilder()
 
     builder.button(
@@ -496,6 +504,11 @@ async def staff_show_transfers(transfer_id):
         callback_data=StaffEditData(
             id=transfer_id, action="staff_transfers_get_detail", value=""
         ),
+    )
+    builder.button(
+        text="👨🏻‍💼 Написать пользователю",
+        url=f"tg://user?id={user_id}",
+        callback_data=URLData(url=""),
     )
 
     builder.adjust(1)
@@ -581,5 +594,42 @@ async def error_kb():
         text="↩ Вернуться на главную", callback_data=UserHomeData(action="cancel", id=0)
     )
     builder.adjust(1)
+
+    return builder.as_markup()
+
+
+#### crypto place __________________________________________________
+
+async def staff_show_cr_transfers(transfer_id, user_id):
+    builder = InlineKeyboardBuilder()
+
+    builder.button(
+        text="🤝 Закрыто",
+        callback_data=StaffEditData(
+            id=transfer_id, action="crypto_order_success", value=""
+        ),
+    )
+    builder.button(
+        text="🤝 Отклонено",
+        callback_data=StaffEditData(
+            id=transfer_id, action="crypto_order_decline", value=""
+        ),
+    )
+    builder.button(
+        text="👨🏻‍💼 Написать пользователю",
+        url=f"tg://user?id={user_id}",
+        callback_data=URLData(url=""),
+    )
+
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+async def staff_close_success():
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text="⚠️ Понятно, в главное меню",
+        callback_data=UserHomeData(action="cancel", id=0),
+    )
 
     return builder.as_markup()

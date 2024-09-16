@@ -81,3 +81,4 @@ def get_settings(path: str):
 
 
 appSettings = get_settings(".env")
+print(appSettings)

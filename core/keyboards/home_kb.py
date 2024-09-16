@@ -8,10 +8,17 @@ async def user_home_inline_button(state: FSMContext):
     data: dict = await state.get_data()
     events: list = data.get("user_events")
     uncompleted_transfers: list = data.get("uncompleted_transfers")
+    cr_orders: list = data.get("cr_orders")
     value: str = f"({len(events)})" if events else ""
 
-    builder = InlineKeyboardBuilder()
+    new_order_exists = 0
     if uncompleted_transfers:
+        new_order_exists += len(uncompleted_transfers)
+    if cr_orders:
+        new_order_exists += len(cr_orders)
+
+    builder = InlineKeyboardBuilder()
+    if new_order_exists:
         builder.button(
             text="Показать",
             callback_data=StaffOfficeData(action="changer_missed_events", id=0),
@@ -19,8 +26,9 @@ async def user_home_inline_button(state: FSMContext):
     else:
         action = {
             "info": "📝 Справка",
-            "support_us": "💰 Донат",
+            "get_rate": "💱 Курс",
             "change": "💳 Обменять валюту",
+            "change_crypto": "💳 Обменять криптовалюту",
             "user_new_events": f"✉ Мои сообщения {value}",
         }
 
